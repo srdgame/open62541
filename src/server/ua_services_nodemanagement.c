@@ -162,13 +162,12 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session,
     /* If variable node is created below BaseObjectType and has its default valueRank of -2,
      * skip the test */
     const UA_NodeId objectTypes = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE);
-    const UA_NodeId refs[2] = {
-        UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT)
-    };
+    UA_NodeId refs[2];
+    refs[0] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
+    refs[1] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT);
     if(node->valueRank != vt->valueRank &&
        node->valueRank != UA_VariableAttributes_default.valueRank &&
-       !isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs , 2)) {
+       !isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs, 2)) {
         /* Check valueRank against the vt */
         if(!compatibleValueRanks(node->valueRank, vt->valueRank))
             return UA_STATUSCODE_BADTYPEMISMATCH;
@@ -223,7 +222,7 @@ useVariableTypeAttributes(UA_Server *server, UA_Session *session,
         UA_Nodestore_get(server, typeDefinition);
     if(!vt || vt->nodeClass != UA_NODECLASS_VARIABLETYPE)
         return UA_STATUSCODE_BADTYPEMISMATCH;
-        
+
     /* If no value is set, see if the vt provides one and copy it. This needs to
      * be done before copying the datatype from the vt, as setting the datatype
      * triggers a typecheck. */
@@ -739,12 +738,11 @@ Operation_addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId
                 const UA_NodeId variableTypes = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE);
                 /* A variable may be of an object type which again is below BaseObjectType */
                 const UA_NodeId objectTypes = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE);
-                const UA_NodeId refs[2] = {
-                        UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
-                        UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT)
-                };
-                if(!isNodeInTree(&server->config.nodestore, parentNodeId, &variableTypes, refs , 2) &&
-                   !isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs , 2)) {
+                UA_NodeId refs[2];
+                refs[0] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
+                refs[1] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT);
+                if(!isNodeInTree(&server->config.nodestore, parentNodeId, &variableTypes, refs, 2) &&
+                   !isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs, 2)) {
                     UA_LOG_INFO_SESSION(server->config.logger, session,
                                         "AddNodes: Type of variable node must "
                                         "be VariableType and not cannot be abstract");
@@ -758,11 +756,10 @@ Operation_addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId
             if(((const UA_ObjectTypeNode*)type)->isAbstract) {
                 /* Object node created of an abstract ObjectType. Only allowed if within BaseObjectType folder */
                 const UA_NodeId objectTypes = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE);
-                const UA_NodeId refs[2] = {
-                        UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
-                        UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT)
-                };
-                if(!isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs , 2)) {
+                UA_NodeId refs[2];
+                refs[0] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
+                refs[1] = UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT);
+                if(!isNodeInTree(&server->config.nodestore, parentNodeId, &objectTypes, refs, 2)) {
                     UA_LOG_INFO_SESSION(server->config.logger, session,
                                         "AddNodes: Type of object node must "
                                                 "be ObjectType and not be abstract");
@@ -888,7 +885,7 @@ Service_AddNodes(UA_Server *server, UA_Session *session,
                       UA_AddNodesResponse *response) {
     UA_LOG_DEBUG_SESSION(server->config.logger, session,
                          "Processing AddNodesRequest");
-    response->responseHeader.serviceResult = 
+    response->responseHeader.serviceResult =
         UA_Server_processServiceOperations(server, session,
                   (UA_ServiceOperation)Service_AddNode,
                   &request->nodesToAddSize, &UA_TYPES[UA_TYPES_ADDNODESITEM],
@@ -1059,7 +1056,7 @@ removeDeconstructedNode(UA_Server *server, UA_Session *session,
                         const UA_Node *node, UA_Boolean removeTargetRefs) {
     /* Remove all children of the node */
     removeChildren(server, session, node);
-    
+
     /* Remove references to the node (not the references going out, as the node
      * will be deleted anyway) */
     if(removeTargetRefs)
