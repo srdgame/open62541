@@ -45,6 +45,9 @@ __UA_Client_readAttribute(UA_Client *client, const UA_NodeId *nodeId,
                           UA_AttributeId attributeId, void *out,
                           const UA_DataType *outDataType);
 
+UA_DataValue
+UA_Client_readAttribute(UA_Client *client, const UA_ReadValueId *item);
+
 static UA_INLINE UA_StatusCode
 UA_Client_readNodeIdAttribute(UA_Client *client, const UA_NodeId nodeId,
                               UA_NodeId *outNodeId) {
@@ -285,6 +288,9 @@ UA_StatusCode UA_EXPORT
 __UA_Client_writeAttribute(UA_Client *client, const UA_NodeId *nodeId,
                            UA_AttributeId attributeId, const void *in,
                            const UA_DataType *inDataType);
+
+UA_StatusCode
+UA_Client_writeAttribute(UA_Client *client, const UA_WriteValue *value);
 
 static UA_INLINE UA_StatusCode
 UA_Client_writeNodeIdAttribute(UA_Client *client, const UA_NodeId nodeId,

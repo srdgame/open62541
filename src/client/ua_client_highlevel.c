@@ -281,6 +281,28 @@ UA_Client_call(UA_Client *client, const UA_NodeId objectId,
 /********************/
 
 UA_StatusCode
+UA_Client_writeAttribute(UA_Client *client, const UA_WriteValue *value) {
+	UA_WriteValue wValue = *value;
+    UA_WriteRequest wReq;
+    UA_WriteRequest_init(&wReq);
+    wReq.nodesToWrite = &wValue;
+    wReq.nodesToWriteSize = 1;
+
+    UA_WriteResponse wResp = UA_Client_Service_write(client, wReq);
+
+    UA_StatusCode retval = wResp.responseHeader.serviceResult;
+    if(retval == UA_STATUSCODE_GOOD) {
+        if(wResp.resultsSize == 1)
+            retval = wResp.results[0];
+        else
+            retval = UA_STATUSCODE_BADUNEXPECTEDERROR;
+    }
+
+    UA_WriteResponse_deleteMembers(&wResp);
+    return retval;
+}
+
+UA_StatusCode
 __UA_Client_writeAttribute(UA_Client *client, const UA_NodeId *nodeId,
                            UA_AttributeId attributeId, const void *in,
                            const UA_DataType *inDataType) {
@@ -351,6 +373,31 @@ UA_Client_writeArrayDimensionsAttribute(UA_Client *client, const UA_NodeId nodeI
 /*******************/
 /* Read Attributes */
 /*******************/
+
+UA_DataValue
+UA_Client_readAttribute(UA_Client *client, const UA_ReadValueId *item) {
+	UA_ReadValueId readItem = *item;
+    UA_ReadRequest request;
+    UA_ReadRequest_init(&request);
+    request.nodesToRead = &readItem;
+    request.nodesToReadSize = 1;
+    UA_ReadResponse response = UA_Client_Service_read(client, request);
+    UA_StatusCode retval = response.responseHeader.serviceResult;
+    UA_DataValue res;
+	UA_DataValue_init(&res);
+
+    if(retval == UA_STATUSCODE_GOOD) {
+        if(response.resultsSize == 1)
+            res.status = response.results[0].status;
+        else
+            res.status = UA_STATUSCODE_BADUNEXPECTEDERROR;
+    }
+    if(retval == UA_STATUSCODE_GOOD) {
+		UA_DataValue_copy(response.results, &res);
+    }
+    UA_ReadResponse_deleteMembers(&response);
+	return res;
+}
 
 UA_StatusCode
 __UA_Client_readAttribute(UA_Client *client, const UA_NodeId *nodeId,
