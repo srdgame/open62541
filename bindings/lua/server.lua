@@ -69,9 +69,19 @@ counter = 0
 
 print("Ctrl-C to exit")
 
+server:addCallback(function()
+	counter = counter + 1
+	local n = opcua.DateTime.now()
+	mytick.value = opcua.Variant.new(n)
+	print('callback', mytick.value, n)
+end, 1000)
+
+
 server:startup()
 while true do
-	counter = counter + 1
+	if counter > 100 then
+		break
+	end
 	server:run_once(false)
 	--local val = opcua.DataValue.new(counter)
 	--val:SetSourceTimestamp(opcua.DateTime.Current()) --FromTimeT(timestamp)
@@ -82,12 +92,6 @@ end
 server:shutdown()
 
 --[[
-server:addCallback(function()
-	local n = opcua.DateTime.now()
-	mytick.value = opcua.Variant.new(n)
-	print('callback', mytick.value, n)
-end, 1000)
-
 server:run()
 print('run finished')
 print(server.running)

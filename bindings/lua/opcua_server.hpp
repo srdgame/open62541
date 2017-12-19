@@ -358,9 +358,15 @@ public:
 		_mgr = new ServerNodeMgr(_server);
 	}
 	~UA_Server_Proxy() {
+		delete _config_proxy;
 		delete _mgr;
 		UA_Server_delete(_server);
 		UA_ServerConfig_delete(_config);
+
+		for (auto p : _callbacks) {
+			p->func = nullptr;
+			delete p;
+		}
 	}
 
 	static void Logger(UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args) {
@@ -435,11 +441,11 @@ public:
 		return UA_Server_run_shutdown(_server);
 	}
 
-	UA_UInt16 addNamespace(const char* namespaceUri) {
-		return UA_Server_addNamespace(_server, namespaceUri);
+	UA_UInt16 addNamespace(const std::string& namespaceUri) {
+		return UA_Server_addNamespace(_server, namespaceUri.c_str());
 	}
-	ServerNodeMgr& getNodeMgr() {
-		return *_mgr;
+	ServerNodeMgr* getNodeMgr() {
+		return _mgr;
 	}
 	UA_Node getObjectsNode() {
 		return UA_Node(_mgr, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), UA_NODECLASS_OBJECT);

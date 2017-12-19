@@ -395,8 +395,8 @@ public:
 		UA_free(uri.data);
 		RETURN_RESULT(UA_UInt16, namespaceIndex)
 	}
-	ClientNodeMgr& getNodeMgr() {
-		return *_mgr;
+	ClientNodeMgr* getNodeMgr() {
+		return _mgr;
 	}
 	UA_Node getObjectsNode() {
 		return UA_Node(_mgr, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), UA_NODECLASS_OBJECT);
@@ -490,7 +490,8 @@ void reg_opcua_client(sol::table& module) {
 	);
 
 	module.new_usertype<ClientNodeMgr>("ClientNodeMgr",
-		sol::constructors<ClientNodeMgr(UA_Client*)>(),
+		//sol::constructors<ClientNodeMgr(UA_Client*)>(),
+		"new", sol::no_constructor,
 		"addReference", &ClientNodeMgr::addReference,
 		"deleteReference", &ClientNodeMgr::deleteReference,
 		"deleteNode", &ClientNodeMgr::deleteNode,
