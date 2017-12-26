@@ -19,7 +19,7 @@ namespace lua_opcua {
 		g_ua_logger = logger;
 	}
 	void UA_LUA_Logger(UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args) {
-		if (g_ua_logger) {
+		if (g_ua_logger && level > UA_LOGLEVEL_INFO) {
 			char *buf = new char[2048];
 			memset(buf, 0, 2048);
 			vsprintf(buf, msg, args);
