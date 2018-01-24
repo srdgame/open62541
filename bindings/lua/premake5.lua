@@ -18,7 +18,6 @@ project "opcua"
 
 	libdirs { "../../bin" }
 	links { "pthread", "open62541" }
-	--defines { "UA_ENABLE_ENCRYPTION" }
 	linkoptions { "-Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
 
 	filter "configurations:Debug"
