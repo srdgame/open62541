@@ -20,8 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2018-01-24 05:51:13.838328 UTC
-// This header was generated with sol v2.19.0 (revision 83f4b4a)
+// Generated 2018-02-05 00:55:01.557255 UTC
+// This header was generated with sol v2.19.0 (revision c9980bf)
 // https://github.com/ThePhD/sol2
 
 #ifndef SOL_SINGLE_INCLUDE_HPP
@@ -71,25 +71,12 @@
 #endif // C++17 features check
 
 #ifdef SOL_CXX17_FEATURES
-#if defined(__cpp_noexcept_function_type) || ((defined(_MSC_VER) && _MSC_VER > 1911) && (defined(_MSVC_LANG) && ((_MSVC_LANG >= 201703L) && defined(_WIN64))))
+#if defined(__cpp_noexcept_function_type) || ((defined(_MSC_VER) && _MSC_VER > 1911) && (defined(_MSVC_LANG) && ((_MSVC_LANG >= 201403L))))
 #ifndef SOL_NOEXCEPT_FUNCTION_TYPE
 #define SOL_NOEXCEPT_FUNCTION_TYPE 1
 #endif // noexcept is part of a function's type
 #endif // compiler-specific checks
 #endif // C++17 only
-
-#if defined(_WIN32) || defined(_MSC_VER)
-#ifndef SOL_CODECVT_SUPPORT
-#define SOL_CODECVT_SUPPORT 1
-#endif // sol codecvt support
-#elif defined(__GNUC__)
-#if __GNUC__ >= 5
-#ifndef SOL_CODECVT_SUPPORT
-#define SOL_CODECVT_SUPPORT 1
-#endif // codecvt support
-#endif // g++ 5.x.x (MinGW too)
-#else
-#endif // Windows/VC++ vs. g++ vs Others
 
 #ifdef _MSC_VER
 #if defined(_DEBUG) && !defined(NDEBUG)
@@ -188,6 +175,16 @@
 #define SOL_NO_NIL 1
 #endif
 #endif // avoiding nil defines / keywords
+
+#ifdef SOL_USE_BOOST
+#ifndef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+#define SOL_UNORDERED_MAP_COMPATIBLE_HASH
+#endif // SOL_UNORDERED_MAP_COMPATIBLE_HASH
+#endif // Boost has unordered_map with Compatible Key and CompatibleHash
+
+#ifndef SOL_STACK_STRING_OPTIMIZATION_SIZE
+#define SOL_STACK_STRING_OPTIMIZATION_SIZE 1024
+#endif // Optimized conversion routines using a KB or so off the stack
 
 // end of sol/feature_test.hpp
 
@@ -799,34 +796,36 @@ namespace meta {
 #ifdef SOL_NOEXCEPT_FUNCTION_TYPE
 
 		template <typename R, typename... Args>
-		struct fx_traits<R(Args...) noexcept, false> : basic_traits<true, false, void, R, Args...> {
+		struct fx_traits<R __stdcall(Args...) noexcept, false> : basic_traits<true, false, void, R, Args...> {
 			typedef R(__stdcall* function_pointer_type)(Args...) noexcept;
 		};
 
 		template <typename R, typename... Args>
-		struct fx_traits<R (*)(Args...) noexcept, false> : basic_traits<true, false, void, R, Args...> {
+		struct fx_traits<R (__stdcall *)(Args...) noexcept, false> : basic_traits<true, false, void, R, Args...> {
 			typedef R(__stdcall* function_pointer_type)(Args...) noexcept;
 		};
 
-		template <typename R, typename... Args>
-		struct fx_traits<R(Args..., ...) noexcept, false> : basic_traits<true, true, void, R, Args...> {
+		/* __stdcall cannot be applied to functions with varargs*/
+		/*template <typename R, typename... Args>
+		struct fx_traits<__stdcall R(Args..., ...) noexcept, false> : basic_traits<true, true, void, R, Args...> {
 			typedef R(__stdcall* function_pointer_type)(Args..., ...) noexcept;
 		};
 
 		template <typename R, typename... Args>
-		struct fx_traits<R (*)(Args..., ...) noexcept, false> : basic_traits<true, true, void, R, Args...> {
+		struct fx_traits<R (__stdcall *)(Args..., ...) noexcept, false> : basic_traits<true, true, void, R, Args...> {
 			typedef R(__stdcall* function_pointer_type)(Args..., ...) noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) noexcept;
-		};
+		};*/
 
 		/* Const Volatile */
 		template <typename T, typename R, typename... Args>
@@ -834,80 +833,88 @@ namespace meta {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) const volatile noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const volatile noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const volatile noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const volatile noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) & noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) & noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) & noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) & noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) const& noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const& noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const& noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const& noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) const volatile& noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const volatile& noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const volatile& noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const volatile& noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) && noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) && noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) && noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) && noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) const&& noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const&& noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const&& noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const&& noexcept;
-		};
+		};*/
 
 		template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args...) const volatile&& noexcept, false> : basic_traits<true, false, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args...) const volatile&& noexcept;
 		};
 
-		template <typename T, typename R, typename... Args>
+		/* __stdcall does not work with varargs */
+		/*template <typename T, typename R, typename... Args>
 		struct fx_traits<R (__stdcall T::*)(Args..., ...) const volatile&& noexcept, false> : basic_traits<true, true, T, R, Args...> {
 			typedef R (__stdcall T::*function_pointer_type)(Args..., ...) const volatile&& noexcept;
-		};
+		};*/
 #endif // noexcept is part of a function's type
 #endif // __stdcall x86 VC++ bug
 
@@ -957,15 +964,163 @@ namespace meta {
 
 // end of sol/bind_traits.hpp
 
+// beginning of sol/string_view.hpp
+
+#ifdef SOL_CXX17_FEATURES
+#include <string_view>
+#endif // C++17 features
+#include <functional>
+#ifdef SOL_USE_BOOST
+#include <boost/functional/hash.hpp>
+#endif
+
+namespace sol {
+#ifdef SOL_CXX17_FEATURES
+	template <typename C, typename T = std::char_traits<C>>
+	using basic_string_view = std::basic_string_view<C, T>;
+	typedef std::string_view string_view;
+	typedef std::wstring_view wstring_view;
+	typedef std::u16string_view u16string_view;
+	typedef std::u32string_view u32string_view;
+	typedef std::hash<std::string_view> string_view_hash;
+#else
+	template <typename Char, typename Traits = std::char_traits<Char>>
+	struct basic_string_view {
+		std::size_t s;
+		const Char* p;
+
+		basic_string_view(const std::string& r)
+		: basic_string_view(r.data(), r.size()) {
+		}
+		basic_string_view(const Char* ptr)
+		: basic_string_view(ptr, Traits::length(ptr)) {
+		}
+		basic_string_view(const Char* ptr, std::size_t sz)
+		: s(sz), p(ptr) {
+		}
+
+		static int compare(const Char* lhs_p, std::size_t lhs_sz, const Char* rhs_p, std::size_t rhs_sz) {
+			int result = Traits::compare(lhs_p, rhs_p, lhs_sz < rhs_sz ? lhs_sz : rhs_sz);
+			if (result != 0)
+				return result;
+			if (lhs_sz < rhs_sz)
+				return -1;
+			if (lhs_sz > rhs_sz)
+				return 1;
+			return 0;
+		}
+
+		const Char* begin() const {
+			return p;
+		}
+
+		const Char* end() const {
+			return p + s;
+		}
+
+		const Char* cbegin() const {
+			return p;
+		}
+
+		const Char* cend() const {
+			return p + s;
+		}
+
+		const Char* data() const {
+			return p;
+		}
+
+		std::size_t size() const {
+			return s;
+		}
+
+		std::size_t length() const {
+			return size();
+		}
+
+		operator std::basic_string<Char, Traits>() const {
+			return std::basic_string<Char, Traits>(data(), size());
+		}
+
+		bool operator==(const basic_string_view& r) const {
+			return compare(p, s, r.data(), r.size()) == 0;
+		}
+
+		bool operator==(const Char* r) const {
+			return compare(r, Traits::length(r), p, s) == 0;
+		}
+
+		bool operator==(const std::basic_string<Char, Traits>& r) const {
+			return compare(r.data(), r.size(), p, s) == 0;
+		}
+
+		bool operator!=(const basic_string_view& r) const {
+			return !(*this == r);
+		}
+
+		bool operator!=(const char* r) const {
+			return !(*this == r);
+		}
+
+		bool operator!=(const std::basic_string<Char, Traits>& r) const {
+			return !(*this == r);
+		}
+	};
+
+	template <typename Ch, typename Tr = std::char_traits<Ch>>
+	struct basic_string_view_hash {
+		typedef basic_string_view<Ch, Tr> argument_type;
+		typedef std::size_t result_type;
+
+		template <typename Al>
+		result_type operator()(const std::basic_string<Ch, Tr, Al>& r) const {
+			return (*this)(argument_type(r.c_str(), r.size()));
+		}
+
+		result_type operator()(const argument_type& r) const {
+#ifdef SOL_USE_BOOST
+			return boost::hash_range(r.begin(), r.end());
+#else
+			// Modified, from libstdc++
+			// An implementation attempt at Fowler No Voll, 1a.
+			// Supposedly, used in MSVC,
+			// GCC (libstdc++) uses MurmurHash of some sort for 64-bit though...?
+			// But, well. Can't win them all, right?
+			// This should normally only apply when NOT using boost,
+			// so this should almost never be tapped into...
+			std::size_t hash = 0;
+			const unsigned char* cptr = reinterpret_cast<const unsigned char*>(r.data());
+			for (std::size_t sz = r.size(); sz != 0; --sz) {
+				hash ^= static_cast<size_t>(*cptr++);
+				hash *= static_cast<size_t>(1099511628211ULL);
+			}
+			return hash; 
+#endif
+		}
+	};
+} // namespace sol
+
+namespace std {
+	template <typename Ch, typename Tr>
+	struct hash< ::sol::basic_string_view<Ch, Tr> > : ::sol::basic_string_view_hash<Ch, Tr> {};
+} // namespace std
+
+namespace sol {
+	using string_view = basic_string_view<char>;
+	using wstring_view = basic_string_view<wchar_t>;
+	using u16string_view = basic_string_view<char16_t>;
+	using u32string_view = basic_string_view<char32_t>;
+	using string_view_hash = std::hash<string_view>;
+#endif // C++17 Support
+} // namespace sol
+
+// end of sol/string_view.hpp
+
 #include <type_traits>
 #include <cstdint>
 #include <memory>
-#include <functional>
 #include <iterator>
 #include <iosfwd>
-#ifdef SOL_CXX17_FEATURES
-#include <string_view>
-#endif
 
 namespace sol {
 	template <std::size_t I>
@@ -1484,11 +1639,19 @@ namespace sol {
 		struct is_matched_lookup : meta_detail::is_matched_lookup_impl<T, is_lookup<T>::value> {};
 
 		template <typename T>
+		using is_string_like = any<
+			is_specialization_of<std::basic_string, meta::unqualified_t<T>>,
+			is_specialization_of<basic_string_view, meta::unqualified_t<T>>,
+			meta::all<std::is_array<unqualified_t<T>>, meta::any_same<meta::unqualified_t<std::remove_all_extents_t<meta::unqualified_t<T>>>, char, char16_t, char32_t, wchar_t>>
+		>;
+
+		template <typename T>
 		using is_string_constructible = any<
-			std::is_same<unqualified_t<T>, const char*>, std::is_same<unqualified_t<T>, char>, std::is_same<unqualified_t<T>, std::string>, std::is_same<unqualified_t<T>, std::initializer_list<char>>
+			meta::all<std::is_array<unqualified_t<T>>, std::is_same<meta::unqualified_t<std::remove_all_extents_t<meta::unqualified_t<T>>>, char>>,
+			std::is_same<unqualified_t<T>, const char*>, 
+			std::is_same<unqualified_t<T>, char>, std::is_same<unqualified_t<T>, std::string>, std::is_same<unqualified_t<T>, std::initializer_list<char>>
 #ifdef SOL_CXX17_FEATURES
-			,
-			std::is_same<unqualified_t<T>, std::string_view>
+			, std::is_same<unqualified_t<T>, std::string_view>
 #endif
 			>;
 
@@ -4142,106 +4305,6 @@ namespace sol {
 
 // end of sol/forward_detail.hpp
 
-// beginning of sol/string_view.hpp
-
-#ifdef SOL_CXX17_FEATURES
-#endif // C++17 features
-
-namespace sol {
-#ifdef SOL_CXX17_FEATURES
-	typedef std::string_view string_view;
-	typedef std::wstring_view wstring_view;
-	typedef std::u16string_view u16string_view;
-	typedef std::u32string_view u32string_view;
-#else
-	template <typename Char, typename Traits = std::char_traits<Char>>
-	struct basic_string_view {
-		std::size_t s;
-		const Char* p;
-
-		basic_string_view(const std::string& r)
-		: basic_string_view(r.data(), r.size()) {
-		}
-		basic_string_view(const Char* ptr)
-		: basic_string_view(ptr, Traits::length(ptr)) {
-		}
-		basic_string_view(const Char* ptr, std::size_t sz)
-		: s(sz), p(ptr) {
-		}
-
-		static int compare(const Char* lhs_p, std::size_t lhs_sz, const Char* rhs_p, std::size_t rhs_sz) {
-			int result = Traits::compare(lhs_p, rhs_p, lhs_sz < rhs_sz ? lhs_sz : rhs_sz);
-			if (result != 0)
-				return result;
-			if (lhs_sz < rhs_sz)
-				return -1;
-			if (lhs_sz > rhs_sz)
-				return 1;
-			return 0;
-		}
-
-		const Char* begin() const {
-			return p;
-		}
-
-		const Char* end() const {
-			return p + s;
-		}
-
-		const Char* cbegin() const {
-			return p;
-		}
-
-		const Char* cend() const {
-			return p + s;
-		}
-
-		const Char* data() const {
-			return p;
-		}
-
-		std::size_t size() const {
-			return s;
-		}
-
-		std::size_t length() const {
-			return size();
-		}
-
-		bool operator==(const basic_string_view& r) const {
-			return compare(p, s, r.data(), r.size()) == 0;
-		}
-
-		bool operator==(const Char* r) const {
-			return compare(r, std::char_traits<char>::length(r), p, s) == 0;
-		}
-
-		bool operator==(const std::basic_string<Char, Traits>& r) const {
-			return compare(r.data(), r.size(), p, s) == 0;
-		}
-
-		bool operator!=(const basic_string_view& r) const {
-			return !(*this == r);
-		}
-
-		bool operator!=(const char* r) const {
-			return !(*this == r);
-		}
-
-		bool operator!=(const std::basic_string<Char, Traits>& r) const {
-			return !(*this == r);
-		}
-	};
-
-	using string_view = basic_string_view<char>;
-	using wstring_view = basic_string_view<wchar_t>;
-	using u16string_view = basic_string_view<char16_t>;
-	using u32string_view = basic_string_view<char32_t>;
-#endif // C++17 Support
-} // namespace sol
-
-// end of sol/string_view.hpp
-
 // beginning of sol/raii.hpp
 
 namespace sol {
@@ -5199,35 +5262,17 @@ namespace sol {
 		template <typename T>
 		struct is_container<std::initializer_list<T>> : std::false_type {};
 
-		template <>
-		struct is_container<std::string> : std::false_type {};
+		template <typename C, typename T, typename A>
+		struct is_container<std::basic_string<C, T, A>> : std::false_type {};
 
-		template <>
-		struct is_container<std::wstring> : std::false_type {};
-
-		template <>
-		struct is_container<std::u16string> : std::false_type {};
-
-		template <>
-		struct is_container<std::u32string> : std::false_type {};
-
-#ifdef SOL_CXX17_FEATURES
-		template <>
-		struct is_container<std::string_view> : std::false_type {};
-
-		template <>
-		struct is_container<std::wstring_view> : std::false_type {};
-
-		template <>
-		struct is_container<std::u16string_view> : std::false_type {};
-
-		template <>
-		struct is_container<std::u32string_view> : std::false_type {};
-#endif // C++ 17
+		template <typename C, typename T>
+		struct is_container<basic_string_view<C, T>> : std::false_type {};
 
 		template <typename T>
-		struct is_container<T,
-			std::enable_if_t<meta::has_begin_end<meta::unqualified_t<T>>::value && !is_initializer_list<meta::unqualified_t<T>>::value>> : std::true_type {};
+		struct is_container<T, std::enable_if_t<meta::has_begin_end<meta::unqualified_t<T>>::value 
+			&& !is_initializer_list<meta::unqualified_t<T>>::value 
+			&& !meta::is_string_like<meta::unqualified_t<T>>::value
+		>> : std::true_type {};
 
 		template <typename T>
 		struct is_container<T, std::enable_if_t<std::is_array<meta::unqualified_t<T>>::value && !meta::any_same<std::remove_all_extents_t<meta::unqualified_t<T>>, char, wchar_t, char16_t, char32_t>::value>> : std::true_type {};
@@ -5243,17 +5288,11 @@ namespace sol {
 		template <typename T, typename = void>
 		struct lua_type_of : std::integral_constant<type, type::userdata> {};
 
-		template <>
-		struct lua_type_of<std::string> : std::integral_constant<type, type::string> {};
+		template <typename C, typename T, typename A>
+		struct lua_type_of<std::basic_string<C, T, A>> : std::integral_constant<type, type::string> {};
 
-		template <>
-		struct lua_type_of<std::wstring> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<std::u16string> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<std::u32string> : std::integral_constant<type, type::string> {};
+		template <typename C, typename T>
+		struct lua_type_of<basic_string_view<C, T>> : std::integral_constant<type, type::string> {};
 
 		template <std::size_t N>
 		struct lua_type_of<char[N]> : std::integral_constant<type, type::string> {};
@@ -5416,18 +5455,6 @@ namespace sol {
 
 		template <>
 		struct lua_type_of<meta_function> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<string_view> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<wstring_view> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<u16string_view> : std::integral_constant<type, type::string> {};
-
-		template <>
-		struct lua_type_of<u32string_view> : std::integral_constant<type, type::string> {};
 
 #ifdef SOL_CXX17_FEATURES
 		template <typename... Tn>
@@ -6231,6 +6258,7 @@ namespace sol {
 				return;
 			}
 			if (r.ref == LUA_NOREF) {
+				luastate = r.luastate;
 				ref = LUA_NOREF;
 				return;
 			}
@@ -6254,6 +6282,7 @@ namespace sol {
 				return;
 			}
 			if (r.ref == LUA_NOREF) {
+				luastate = r.luastate;
 				ref = LUA_NOREF;
 				return;
 			}
@@ -6409,6 +6438,15 @@ namespace sol {
 
 		basic_reference& operator=(const basic_reference<!main_only>& r) noexcept {
 			copy_assign(r);
+			return *this;
+		}
+
+		basic_reference& operator=(const lua_nil_t&) noexcept {
+			if (valid()) {
+				deref();
+			}
+			luastate = nullptr;
+			ref = LUA_NOREF;
 			return *this;
 		}
 
@@ -8181,9 +8219,313 @@ namespace sol {
 
 // end of sol/overload.hpp
 
-#ifdef SOL_CODECVT_SUPPORT
-#include <codecvt>
-#endif // codecvt header support
+// beginning of sol/unicode.hpp
+
+#pragma once
+
+#include <cstring>
+
+namespace sol {
+	// Everything here was lifted pretty much straight out of
+	// ogonek, because fuck figuring it out=
+	namespace unicode {
+		enum error_code {
+			ok = 0,
+			invalid_code_point,
+			invalid_code_unit,
+			invalid_leading_surrogate,
+			invalid_trailing_surrogate,
+			sequence_too_short,
+			overlong_sequence,
+		};
+
+		inline const string_view& to_string(error_code ec) {
+			static const string_view arr[4] = {
+				"ok",
+				"invalid code points",
+				"invalid code unit",
+				"overlong sequence"
+			};
+			return arr[static_cast<std::size_t>(ec)];
+		}
+
+		template <typename It>
+		struct decoded_result {
+			error_code error;
+			char32_t codepoint;
+			It next;
+		};
+
+		template <typename C>
+		struct encoded_result {
+			error_code error;
+			std::size_t code_units_size;
+			std::array<C, 4> code_units;
+		};
+
+		struct unicode_detail {
+			// codepoint related
+			static constexpr char32_t last_code_point = 0x10FFFF;
+
+			static constexpr char32_t first_lead_surrogate = 0xD800;
+			static constexpr char32_t last_lead_surrogate = 0xDBFF;
+
+			static constexpr char32_t first_trail_surrogate = 0xDC00;
+			static constexpr char32_t last_trail_surrogate = 0xDFFF;
+
+			static constexpr char32_t first_surrogate = first_lead_surrogate;
+			static constexpr char32_t last_surrogate = last_trail_surrogate;
+
+			static constexpr bool is_lead_surrogate(char32_t u) {
+				return u >= first_lead_surrogate && u <= last_lead_surrogate;
+			}
+			static constexpr bool is_trail_surrogate(char32_t u) {
+				return u >= first_trail_surrogate && u <= last_trail_surrogate;
+			}
+			static constexpr bool is_surrogate(char32_t u) {
+				return u >= first_surrogate && u <= last_surrogate;
+			}
+
+			// utf8 related
+			static constexpr auto last_1byte_value = 0x7Fu;
+			static constexpr auto last_2byte_value = 0x7FFu;
+			static constexpr auto last_3byte_value = 0xFFFFu;
+
+			static constexpr auto start_2byte_mask = 0x80u;
+			static constexpr auto start_3byte_mask = 0xE0u;
+			static constexpr auto start_4byte_mask = 0xF0u;
+
+			static constexpr auto continuation_mask = 0xC0u;
+			static constexpr auto continuation_signature = 0x80u;
+
+			static constexpr int sequence_length(unsigned char b) {
+				return (b & start_2byte_mask) == 0 ? 1
+					: (b & start_3byte_mask) != start_3byte_mask ? 2
+					: (b & start_4byte_mask) != start_4byte_mask ? 3
+					: 4;
+			}
+
+			static constexpr char32_t decode(unsigned char b0, unsigned char b1) {
+				return ((b0 & 0x1F) << 6) | (b1 & 0x3F);
+			}
+			static constexpr char32_t decode(unsigned char b0, unsigned char b1, unsigned char b2) {
+				return ((b0 & 0x0F) << 12) | ((b1 & 0x3F) << 6) | (b2 & 0x3F);
+			}
+			static constexpr char32_t decode(unsigned char b0, unsigned char b1, unsigned char b2, unsigned char b3) {
+				return ((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
+			}
+
+			// utf16 related
+			static constexpr char32_t last_bmp_value = 0xFFFF;
+			static constexpr char32_t normalizing_value = 0x10000;
+			static constexpr int lead_surrogate_bitmask = 0xFFC00;
+			static constexpr int trail_surrogate_bitmask = 0x3FF;
+			static constexpr int lead_shifted_bits = 10;
+
+			static char32_t combine_surrogates(char16_t lead, char16_t trail) {
+				auto hi = lead - first_lead_surrogate;
+				auto lo = trail - first_trail_surrogate;
+				return normalizing_value + ((hi << lead_shifted_bits) | lo);
+			}
+		};
+
+		inline encoded_result<char> code_point_to_utf8(char32_t codepoint) {
+			encoded_result<char> er;
+			er.error = error_code::ok;
+			if (codepoint <= unicode_detail::last_1byte_value) {
+				er.code_units_size = 1;
+				er.code_units = std::array<char, 4>{ static_cast<char>(codepoint) };
+			}
+			else if (codepoint <= unicode_detail::last_2byte_value) {
+				er.code_units_size = 2;
+				er.code_units = std::array<char, 4>{
+					static_cast<char>(0xC0 | ((codepoint & 0x7C0) >> 6)),
+					static_cast<char>(0x80 | (codepoint & 0x3F)),
+				};
+			}
+			else if (codepoint <= unicode_detail::last_3byte_value) {
+				er.code_units_size = 3;
+				er.code_units = std::array<char, 4>{
+					static_cast<char>(0xE0 | ((codepoint & 0xF000) >> 12)),
+					static_cast<char>(0x80 | ((codepoint & 0xFC0) >> 6)),
+					static_cast<char>(0x80 | (codepoint & 0x3F)),
+				};
+			}
+			else {
+				er.code_units_size = 4;
+				er.code_units = std::array<char, 4>{
+					static_cast<char>(0xF0 | ((codepoint & 0x1C0000) >> 18)),
+						static_cast<char>(0x80 | ((codepoint & 0x3F000) >> 12)),
+						static_cast<char>(0x80 | ((codepoint & 0xFC0) >> 6)),
+						static_cast<char>(0x80 | (codepoint & 0x3F)),
+				};
+			}
+			return er;
+		}
+
+		inline encoded_result<char16_t> code_point_to_utf16(char32_t codepoint) {
+			encoded_result<char16_t> er;
+
+			if (codepoint <= unicode_detail::last_bmp_value) {
+				er.code_units_size = 1;
+				er.code_units = std::array<char16_t, 4>{ static_cast<char16_t>(codepoint) };
+				er.error = error_code::ok;
+			}
+			else {
+				auto normal = codepoint - unicode_detail::normalizing_value;
+				auto lead = unicode_detail::first_lead_surrogate + ((normal & unicode_detail::lead_surrogate_bitmask) >> unicode_detail::lead_shifted_bits);
+				auto trail = unicode_detail::first_trail_surrogate + (normal & unicode_detail::trail_surrogate_bitmask);
+				er.code_units = std::array<char16_t, 4>{
+					static_cast<char16_t>(lead),
+					static_cast<char16_t>(trail)
+				};
+				er.code_units_size = 2;
+				er.error = error_code::ok;
+			}
+			return er;
+		}
+
+		inline encoded_result<char32_t> code_point_to_utf32(char32_t codepoint) {
+			encoded_result<char32_t> er;
+			er.code_units_size = 1;
+			er.code_units[0] = codepoint;
+			er.error = error_code::ok;
+			return er;
+		}
+
+		template <typename It>
+		inline decoded_result<It> utf8_to_code_point(It it, It last) {
+			decoded_result<It> dr;
+			if (it == last) {
+				dr.next = it;
+				dr.error = error_code::sequence_too_short;
+				return dr;
+			}
+
+			unsigned char b0 = *it;
+			std::size_t length = unicode_detail::sequence_length(b0);
+
+			if (length == 1) {
+				dr.codepoint = static_cast<char32_t>(b0);
+				dr.error = error_code::ok;
+				++it;
+				dr.next = it;
+				return dr;
+			}
+
+			auto is_invalid = [](unsigned char b) { return b == 0xC0 || b == 0xC1 || b > 0xF4; };
+			auto is_continuation = [](unsigned char b) {
+				return (b & unicode_detail::continuation_mask) == unicode_detail::continuation_signature;
+			};
+
+			if (is_invalid(b0) || is_continuation(b0)) {
+				dr.error = error_code::invalid_code_unit;
+				dr.next = it;
+				return dr;
+			}
+
+			++it;
+			std::array<unsigned char, 4> b;
+			b[0] = b0;
+			for (std::size_t i = 1; i < length; ++i) {
+				b[i] = *it;
+				if (!is_continuation(b[i])) {
+					dr.error = error_code::invalid_code_unit;
+					dr.next = it;
+					return dr;
+				}
+				++it;
+			}
+
+			char32_t decoded;
+			switch (length) {
+			case 2:
+				decoded = unicode_detail::decode(b[0], b[1]);
+				break;
+			case 3:
+				decoded = unicode_detail::decode(b[0], b[1], b[2]);
+				break;
+			default:
+				decoded = unicode_detail::decode(b[0], b[1], b[2], b[3]);
+				break;
+			}
+
+			auto is_overlong = [](char32_t u, std::size_t bytes) {
+				return u <= unicode_detail::last_1byte_value
+					|| (u <= unicode_detail::last_2byte_value && bytes > 2)
+					|| (u <= unicode_detail::last_3byte_value && bytes > 3);
+			};
+			if (is_overlong(decoded, length)) {
+				dr.error = error_code::overlong_sequence;
+				return dr;
+			}
+			if (unicode_detail::is_surrogate(decoded) || decoded > unicode_detail::last_code_point) {
+				dr.error = error_code::invalid_code_point;
+				return dr;
+			}
+			
+			// then everything is fine
+			dr.codepoint = decoded;
+			dr.error = error_code::ok;
+			dr.next = it;
+			return dr;
+		}
+
+		template <typename It>
+		inline decoded_result<It> utf16_to_code_point(It it, It last) {
+			decoded_result<It> dr;
+			if (it == last) {
+				dr.next = it;
+				dr.error = error_code::sequence_too_short;
+				return dr;
+			}
+
+			char16_t lead = static_cast<char16_t>(*it);
+			
+			if (!unicode_detail::is_surrogate(lead)) {
+				++it;
+				dr.codepoint = static_cast<char32_t>(lead);
+				dr.next = it;
+				dr.error = error_code::ok;
+				return dr;
+			}
+			if (!unicode_detail::is_lead_surrogate(lead)) {
+				dr.error = error_code::invalid_leading_surrogate;
+				dr.next = it;
+				return dr;
+			}
+
+			++it;
+			auto trail = *it;
+			if (!unicode_detail::is_trail_surrogate(trail)) {
+				dr.error = error_code::invalid_trailing_surrogate;
+				dr.next = it;
+				return dr;
+			}
+			
+			dr.codepoint = unicode_detail::combine_surrogates(lead, trail);
+			dr.next = ++it;
+			dr.error = error_code::ok;
+			return dr;
+		}
+
+		template <typename It>
+		inline decoded_result<It> utf32_to_code_point(It it, It last) {
+			decoded_result<It> dr;
+			if (it == last) {
+				dr.next = it;
+				dr.error = error_code::sequence_too_short;
+				return dr;
+			}
+			dr.codepoint = static_cast<char32_t>(*it);
+			dr.next = ++it;
+			dr.error = error_code::ok;
+			return dr;
+		}
+	}
+}
+// end of sol/unicode.hpp
+
 #ifdef SOL_CXX17_FEATURES
 #endif // C++17
 
@@ -8588,111 +8930,137 @@ namespace stack {
 		}
 	};
 
-	template <>
-	struct getter<string_view> {
+	template <typename Traits>
+	struct getter<basic_string_view<char, Traits>> {
 		static string_view get(lua_State* L, int index, record& tracking) {
 			tracking.use(1);
 			size_t sz;
 			const char* str = lua_tolstring(L, index, &sz);
-			return string_view(str, sz);
+			return basic_string_view<char, Traits>(str, sz);
 		}
 	};
 
-#ifdef SOL_CODECVT_SUPPORT
-	template <>
-	struct getter<std::wstring> {
-		static std::wstring get(lua_State* L, int index, record& tracking) {
+	template <typename Traits, typename Al>
+	struct getter<std::basic_string<wchar_t, Traits, Al>> {
+		typedef std::basic_string<wchar_t, Traits, Al> S;
+		static S get(lua_State* L, int index, record& tracking) {
+			typedef std::conditional_t<sizeof(wchar_t) == 2, char16_t, char32_t> Ch;
+			typedef typename std::allocator_traits<Al>::template rebind_alloc<Ch> ChAl;
+			typedef std::char_traits<Ch> ChTraits;
+			getter<std::basic_string<Ch, ChTraits, ChAl>> g;
+			(void)g;
+			return g.template get_into<S>(L, index, tracking);
+		}
+	};
+
+	template <typename Traits, typename Al>
+	struct getter<std::basic_string<char16_t, Traits, Al>> {
+		template <typename S>
+		static S get_into(lua_State* L, int index, record& tracking) {
+			typedef typename S::value_type Ch;
 			tracking.use(1);
 			size_t len;
-			auto str = lua_tolstring(L, index, &len);
+			auto utf8p = lua_tolstring(L, index, &len);
 			if (len < 1)
-				return std::wstring();
-			if (sizeof(wchar_t) == 2) {
-				thread_local std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-				std::wstring r = convert.from_bytes(str, str + len);
-#if defined(__MINGW32__) && defined(__GNUC__) && __GNUC__ < 7
-				// Thanks, MinGW and libstdc++, for introducing this absolutely asinine bug
-				// https://sourceforge.net/p/mingw-w64/bugs/538/
-				// http://chat.stackoverflow.com/transcript/message/32271369#32271369
-				for (auto& c : r) {
-					uint8_t* b = reinterpret_cast<uint8_t*>(&c);
-					std::swap(b[0], b[1]);
-				}
-#endif
-				return r;
+				return S();
+			std::size_t needed_size = 0;
+			const char* strb = utf8p;
+			const char* stre = utf8p + len;
+			for (const char* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf8_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf16(dr.codepoint);
+				needed_size += er.code_units_size;
+				strtarget = dr.next;
 			}
-			thread_local std::wstring_convert<std::codecvt_utf8<wchar_t>> convert;
-			std::wstring r = convert.from_bytes(str, str + len);
+			S r(needed_size, static_cast<Ch>(0));
+			r.resize(needed_size);
+			Ch* target = &r[0];
+			for (const char* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf8_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf16(dr.codepoint);
+				std::memcpy(target, er.code_units.data(), er.code_units_size * sizeof(Ch));
+				strtarget = dr.next;
+				target += er.code_units_size;
+			}
 			return r;
+		}
+
+		static std::basic_string<char16_t, Traits, Al> get(lua_State* L, int index, record& tracking) {
+			return get_into<std::basic_string<char16_t, Traits, Al>>(L, index, tracking);
 		}
 	};
 
-	template <>
-	struct getter<std::u16string> {
-		static std::u16string get(lua_State* L, int index, record& tracking) {
+	template <typename Traits, typename Al>
+	struct getter<std::basic_string<char32_t, Traits, Al>> {
+		template <typename S>
+		static S get_into(lua_State* L, int index, record& tracking) {
+			typedef typename S::value_type Ch;
 			tracking.use(1);
 			size_t len;
-			auto str = lua_tolstring(L, index, &len);
+			auto utf8p = lua_tolstring(L, index, &len);
 			if (len < 1)
-				return std::u16string();
-#ifdef _MSC_VER
-			thread_local std::wstring_convert<std::codecvt_utf8_utf16<int16_t>, int16_t> convert;
-			auto intd = convert.from_bytes(str, str + len);
-			std::u16string r(intd.size(), '\0');
-			std::memcpy(&r[0], intd.data(), intd.size() * sizeof(char16_t));
-#else
-			thread_local std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-			std::u16string r = convert.from_bytes(str, str + len);
-#endif // VC++ is a shit
+				return S();
+			std::size_t needed_size = 0;
+			const char* strb = utf8p;
+			const char* stre = utf8p + len;
+			for (const char* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf8_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf32(dr.codepoint);
+				needed_size += er.code_units_size;
+				strtarget = dr.next;
+			}
+			S r(needed_size, static_cast<Ch>(0));
+			r.resize(needed_size);
+			Ch* target = &r[0];
+			for (const char* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf8_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf32(dr.codepoint);
+				std::memcpy(target, er.code_units.data(), er.code_units_size * sizeof(Ch));
+				strtarget = dr.next;
+				target += er.code_units_size;
+			}
 			return r;
 		}
-	};
 
-	template <>
-	struct getter<std::u32string> {
-		static std::u32string get(lua_State* L, int index, record& tracking) {
-			tracking.use(1);
-			size_t len;
-			auto str = lua_tolstring(L, index, &len);
-			if (len < 1)
-				return std::u32string();
-#ifdef _MSC_VER
-			thread_local std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
-			auto intd = convert.from_bytes(str, str + len);
-			std::u32string r(intd.size(), '\0');
-			std::memcpy(&r[0], intd.data(), r.size() * sizeof(char32_t));
-#else
-			thread_local std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-			std::u32string r = convert.from_bytes(str, str + len);
-#endif // VC++ is a shit
-			return r;
-		}
-	};
-
-	template <>
-	struct getter<wchar_t> {
-		static wchar_t get(lua_State* L, int index, record& tracking) {
-			auto str = getter<std::wstring>{}.get(L, index, tracking);
-			return str.size() > 0 ? str[0] : wchar_t(0);
+		static std::basic_string<char32_t, Traits, Al> get(lua_State* L, int index, record& tracking) {
+			return get_into<std::basic_string<char32_t, Traits, Al>>(L, index, tracking);
 		}
 	};
 
 	template <>
 	struct getter<char16_t> {
 		static char16_t get(lua_State* L, int index, record& tracking) {
-			auto str = getter<std::u16string>{}.get(L, index, tracking);
-			return str.size() > 0 ? str[0] : char16_t(0);
+			string_view utf8 = stack::get<string_view>(L, index, tracking);
+			const char* strb = utf8.data();
+			const char* stre = utf8.data() + utf8.size();
+			auto dr = unicode::utf8_to_code_point(strb, stre);
+			auto er = unicode::code_point_to_utf16(dr.codepoint);
+			return er.code_units[0];
 		}
 	};
 
 	template <>
 	struct getter<char32_t> {
 		static char32_t get(lua_State* L, int index, record& tracking) {
-			auto str = getter<std::u32string>{}.get(L, index, tracking);
-			return str.size() > 0 ? str[0] : char32_t(0);
+			string_view utf8 = stack::get<string_view>(L, index, tracking);
+			const char* strb = utf8.data();
+			const char* stre = utf8.data() + utf8.size();
+			auto dr = unicode::utf8_to_code_point(strb, stre);
+			auto er = unicode::code_point_to_utf32(dr.codepoint);
+			return er.code_units[0];
 		}
 	};
-#endif // codecvt header support
+
+	template <>
+	struct getter<wchar_t> {
+		static wchar_t get(lua_State* L, int index, record& tracking) {
+			typedef std::conditional_t<sizeof(wchar_t) == 2, char16_t, char32_t> Ch;
+			getter<Ch> g;
+			(void)g;
+			auto c = g.get(L, index, tracking);
+			return static_cast<wchar_t>(c);
+		}
+	};
 
 	template <>
 	struct getter<meta_function> {
@@ -9107,8 +9475,6 @@ namespace stack {
 // beginning of sol/stack_push.hpp
 
 #include <limits>
-#ifdef SOL_CODECVT_SUPPORT
-#endif // codecvt support
 #ifdef SOL_CXX17_FEATURES
 #endif // C++17
 
@@ -9457,6 +9823,7 @@ namespace stack {
 			return 1;
 		}
 	};
+
 #ifdef SOL_NOEXCEPT_FUNCTION_TYPE
 	template <>
 	struct pusher<std::remove_pointer_t<detail::lua_CFunction_noexcept>> {
@@ -9659,26 +10026,26 @@ namespace stack {
 		}
 	};
 
-	template <>
-	struct pusher<std::string> {
-		static int push(lua_State* L, const std::string& str) {
+	template <typename Traits, typename Al>
+	struct pusher<std::basic_string<char, Traits, Al>> {
+		static int push(lua_State* L, const std::basic_string<char, Traits, Al>& str) {
 			lua_pushlstring(L, str.c_str(), str.size());
 			return 1;
 		}
 
-		static int push(lua_State* L, const std::string& str, std::size_t sz) {
+		static int push(lua_State* L, const std::basic_string<char, Traits, Al>& str, std::size_t sz) {
 			lua_pushlstring(L, str.c_str(), sz);
 			return 1;
 		}
 	};
 
-	template <>
-	struct pusher<string_view> {
-		static int push(lua_State* L, const string_view& sv) {
+	template <typename Ch, typename Traits>
+	struct pusher<basic_string_view<Ch, Traits>> {
+		static int push(lua_State* L, const basic_string_view<Ch, Traits>& sv) {
 			return stack::push(L, sv.data(), sv.length());
 		}
 
-		static int push(lua_State* L, const string_view& sv, std::size_t n) {
+		static int push(lua_State* L, const basic_string_view<Ch, Traits>& sv, std::size_t n) {
 			return stack::push(L, sv.data(), n);
 		}
 	};
@@ -9716,7 +10083,6 @@ namespace stack {
 		}
 	};
 
-#ifdef SOL_CODECVT_SUPPORT
 	template <>
 	struct pusher<const wchar_t*> {
 		static int push(lua_State* L, const wchar_t* wstr) {
@@ -9729,13 +10095,13 @@ namespace stack {
 
 		static int push(lua_State* L, const wchar_t* strb, const wchar_t* stre) {
 			if (sizeof(wchar_t) == 2) {
-				thread_local std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-				std::string u8str = convert.to_bytes(strb, stre);
-				return stack::push(L, u8str);
+				const char16_t* sb = reinterpret_cast<const char16_t*>(strb);
+				const char16_t* se = reinterpret_cast<const char16_t*>(stre);
+				return stack::push(L, sb, se);
 			}
-			thread_local std::wstring_convert<std::codecvt_utf8<wchar_t>> convert;
-			std::string u8str = convert.to_bytes(strb, stre);
-			return stack::push(L, u8str);
+			const char32_t* sb = reinterpret_cast<const char32_t*>(strb);
+			const char32_t* se = reinterpret_cast<const char32_t*>(stre);
+			return stack::push(L, sb, se);
 		}
 	};
 
@@ -9762,6 +10128,20 @@ namespace stack {
 
 	template <>
 	struct pusher<const char16_t*> {
+		static int convert_into(lua_State* L, char* start, std::size_t, const char16_t* strb, const char16_t* stre) {
+			char* target = start;
+			for (const char16_t* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf16_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf8(dr.codepoint);
+				const char* utf8data = er.code_units.data();
+				std::memcpy(target, utf8data, er.code_units_size);
+				target += er.code_units_size;
+				strtarget = dr.next;
+			}
+
+			return stack::push(L, start, target);
+		}
+
 		static int push(lua_State* L, const char16_t* u16str) {
 			return push(L, u16str, std::char_traits<char16_t>::length(u16str));
 		}
@@ -9771,14 +10151,30 @@ namespace stack {
 		}
 
 		static int push(lua_State* L, const char16_t* strb, const char16_t* stre) {
-#ifdef _MSC_VER
-			thread_local std::wstring_convert<std::codecvt_utf8_utf16<int16_t>, int16_t> convert;
-			std::string u8str = convert.to_bytes(reinterpret_cast<const int16_t*>(strb), reinterpret_cast<const int16_t*>(stre));
-#else
-			thread_local std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-			std::string u8str = convert.to_bytes(strb, stre);
-#endif // VC++ is a shit
-			return stack::push(L, u8str);
+			// TODO: use new unicode methods
+			// TODO: use new unicode methods
+			char sbo[SOL_STACK_STRING_OPTIMIZATION_SIZE];
+			// if our max string space is small enough, use SBO
+			// right off the bat
+			std::size_t max_possible_code_units = (stre - strb) * 4;
+			if (max_possible_code_units <= SOL_STACK_STRING_OPTIMIZATION_SIZE) {
+				return convert_into(L, sbo, max_possible_code_units, strb, stre);
+			}
+			// otherwise, we must manually count/check size
+			std::size_t needed_size = 0;
+			for (const char16_t* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf16_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf8(dr.codepoint);
+				needed_size += er.code_units_size;
+				strtarget = dr.next;
+			}
+			if (needed_size < SOL_STACK_STRING_OPTIMIZATION_SIZE) {
+				return convert_into(L, sbo, needed_size, strb, stre);
+			}
+			std::string u8str("", 0);
+			u8str.resize(needed_size);
+			char* target = &u8str[0];
+			return convert_into(L, target, needed_size, strb, stre);
 		}
 	};
 
@@ -9805,6 +10201,19 @@ namespace stack {
 
 	template <>
 	struct pusher<const char32_t*> {
+		static int convert_into(lua_State* L, char* start, std::size_t, const char32_t* strb, const char32_t* stre) {
+			char* target = start;
+			for (const char32_t* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf32_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf8(dr.codepoint);
+				const char* data = er.code_units.data();
+				std::memcpy(target, data, er.code_units_size);
+				target += er.code_units_size;
+				strtarget = dr.next;
+			}
+			return stack::push(L, start, target);
+		}
+
 		static int push(lua_State* L, const char32_t* u32str) {
 			return push(L, u32str, u32str + std::char_traits<char32_t>::length(u32str));
 		}
@@ -9814,14 +10223,29 @@ namespace stack {
 		}
 
 		static int push(lua_State* L, const char32_t* strb, const char32_t* stre) {
-#ifdef _MSC_VER
-			thread_local std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
-			std::string u8str = convert.to_bytes(reinterpret_cast<const int32_t*>(strb), reinterpret_cast<const int32_t*>(stre));
-#else
-			thread_local std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-			std::string u8str = convert.to_bytes(strb, stre);
-#endif // VC++ is a shit
-			return stack::push(L, u8str);
+			// TODO: use new unicode methods
+			char sbo[SOL_STACK_STRING_OPTIMIZATION_SIZE];
+			// if our max string space is small enough, use SBO
+			// right off the bat
+			std::size_t max_possible_code_units = (stre - strb) * 4;
+			if (max_possible_code_units <= SOL_STACK_STRING_OPTIMIZATION_SIZE) {
+				return convert_into(L, sbo, max_possible_code_units, strb, stre);
+			}
+			// otherwise, we must manually count/check size
+			std::size_t needed_size = 0;
+			for (const char32_t* strtarget = strb; strtarget < stre;) {
+				auto dr = unicode::utf32_to_code_point(strtarget, stre);
+				auto er = unicode::code_point_to_utf8(dr.codepoint);
+				needed_size += er.code_units_size;
+				strtarget = dr.next;
+			}
+			if (needed_size < SOL_STACK_STRING_OPTIMIZATION_SIZE) {
+				return convert_into(L, sbo, needed_size, strb, stre);
+			}
+			std::string u8str("", 0);
+			u8str.resize(needed_size);
+			char* target = &u8str[0];
+			return convert_into(L, target, needed_size, strb, stre);
 		}
 	};
 
@@ -9883,7 +10307,7 @@ namespace stack {
 	struct pusher<wchar_t> {
 		static int push(lua_State* L, wchar_t c) {
 			const wchar_t str[2] = { c, '\0' };
-			return stack::push(L, str, 1);
+			return stack::push(L, &str[0], 1);
 		}
 	};
 
@@ -9891,7 +10315,7 @@ namespace stack {
 	struct pusher<char16_t> {
 		static int push(lua_State* L, char16_t c) {
 			const char16_t str[2] = { c, '\0' };
-			return stack::push(L, str, 1);
+			return stack::push(L, &str[0], 1);
 		}
 	};
 
@@ -9899,76 +10323,42 @@ namespace stack {
 	struct pusher<char32_t> {
 		static int push(lua_State* L, char32_t c) {
 			const char32_t str[2] = { c, '\0' };
-			return stack::push(L, str, 1);
+			return stack::push(L, &str[0], 1);
 		}
 	};
 
-	template <>
-	struct pusher<std::wstring> {
-		static int push(lua_State* L, const std::wstring& wstr) {
-			return push(L, wstr.data(), wstr.size());
+	template <typename Traits, typename Al>
+	struct pusher<std::basic_string<wchar_t, Traits, Al>> {
+		static int push(lua_State* L, const std::basic_string<wchar_t, Traits, Al>& wstr) {
+			return push(L, wstr, wstr.size());
 		}
 
-		static int push(lua_State* L, const std::wstring& wstr, std::size_t sz) {
+		static int push(lua_State* L, const std::basic_string<wchar_t, Traits, Al>& wstr, std::size_t sz) {
 			return stack::push(L, wstr.data(), wstr.data() + sz);
 		}
 	};
 
-	template <>
-	struct pusher<std::u16string> {
-		static int push(lua_State* L, const std::u16string& u16str) {
+	template <typename Traits, typename Al>
+	struct pusher<std::basic_string<char16_t, Traits, Al>> {
+		static int push(lua_State* L, const std::basic_string<char16_t, Traits, Al>& u16str) {
 			return push(L, u16str, u16str.size());
 		}
 
-		static int push(lua_State* L, const std::u16string& u16str, std::size_t sz) {
+		static int push(lua_State* L, const std::basic_string<char16_t, Traits, Al>& u16str, std::size_t sz) {
 			return stack::push(L, u16str.data(), u16str.data() + sz);
 		}
 	};
 
-	template <>
-	struct pusher<std::u32string> {
-		static int push(lua_State* L, const std::u32string& u32str) {
+	template <typename Traits, typename Al>
+	struct pusher<std::basic_string<char32_t, Traits, Al>> {
+		static int push(lua_State* L, const std::basic_string<char32_t, Traits, Al>& u32str) {
 			return push(L, u32str, u32str.size());
 		}
 
-		static int push(lua_State* L, const std::u32string& u32str, std::size_t sz) {
+		static int push(lua_State* L, const std::basic_string<char32_t, Traits, Al>& u32str, std::size_t sz) {
 			return stack::push(L, u32str.data(), u32str.data() + sz);
 		}
 	};
-
-	template <>
-	struct pusher<wstring_view> {
-		static int push(lua_State* L, const wstring_view& sv) {
-			return stack::push(L, sv.data(), sv.length());
-		}
-
-		static int push(lua_State* L, const wstring_view& sv, std::size_t n) {
-			return stack::push(L, sv.data(), n);
-		}
-	};
-
-	template <>
-	struct pusher<u16string_view> {
-		static int push(lua_State* L, const u16string_view& sv) {
-			return stack::push(L, sv.data(), sv.length());
-		}
-
-		static int push(lua_State* L, const u16string_view& sv, std::size_t n) {
-			return stack::push(L, sv.data(), n);
-		}
-	};
-
-	template <>
-	struct pusher<u32string_view> {
-		static int push(lua_State* L, const u32string_view& sv) {
-			return stack::push(L, sv.data(), sv.length());
-		}
-
-		static int push(lua_State* L, const u32string_view& sv, std::size_t n) {
-			return stack::push(L, sv.data(), n);
-		}
-	};
-#endif // codecvt Header Support
 
 	template <typename... Args>
 	struct pusher<std::tuple<Args...>> {
@@ -10413,8 +10803,6 @@ namespace stack {
 
 // end of sol/stack_probe.hpp
 
-#include <cstring>
-
 namespace sol {
 	namespace detail {
 		using typical_chunk_name_t = char[32];
@@ -10586,11 +10974,11 @@ namespace sol {
 			return call_into_lua<check_args, clean_stack>(returns_list(), args_list(), L, start, std::forward<Fx>(fx), std::forward<FxArgs>(fxargs)...);
 		}
 
-		inline call_syntax get_call_syntax(lua_State* L, const std::string& key, int index) {
+		inline call_syntax get_call_syntax(lua_State* L, const string_view& key, int index) {
 			if (lua_gettop(L) == 0) {
 				return call_syntax::dot;
 			}
-			luaL_getmetatable(L, key.c_str());
+			luaL_getmetatable(L, key.data());
 			auto pn = pop_n(L, 1);
 			if (lua_compare(L, -1, index, LUA_OPEQ) != 1) {
 				return call_syntax::dot;
@@ -10884,10 +11272,6 @@ namespace sol {
 
 namespace sol {
 	struct stack_proxy : public stack_proxy_base {
-	private:
-		lua_State* L;
-		int index;
-
 	public:
 		stack_proxy()
 		: stack_proxy_base() {
@@ -11916,7 +12300,7 @@ namespace sol {
 		inline int construct(lua_State* L) {
 			static const auto& meta = usertype_traits<T>::metatable();
 			int argcount = lua_gettop(L);
-			call_syntax syntax = argcount > 0 ? stack::get_call_syntax(L, &usertype_traits<T>::user_metatable()[0], 1) : call_syntax::dot;
+			call_syntax syntax = argcount > 0 ? stack::get_call_syntax(L, usertype_traits<T>::user_metatable(), 1) : call_syntax::dot;
 			argcount -= static_cast<int>(syntax);
 
 			T* obj = detail::usertype_allocate<T>(L);
@@ -12215,7 +12599,7 @@ namespace sol {
 			static int call(lua_State* L, F&) {
 				const auto& metakey = usertype_traits<T>::metatable();
 				int argcount = lua_gettop(L);
-				call_syntax syntax = argcount > 0 ? stack::get_call_syntax(L, &usertype_traits<T>::user_metatable()[0], 1) : call_syntax::dot;
+				call_syntax syntax = argcount > 0 ? stack::get_call_syntax(L, usertype_traits<T>::user_metatable(), 1) : call_syntax::dot;
 				argcount -= static_cast<int>(syntax);
 
 				T* obj = detail::usertype_allocate<T>(L);
@@ -12264,7 +12648,7 @@ namespace sol {
 			};
 
 			static int call(lua_State* L, F& f) {
-				call_syntax syntax = stack::get_call_syntax(L, &usertype_traits<T>::user_metatable()[0], 1);
+				call_syntax syntax = stack::get_call_syntax(L, usertype_traits<T>::user_metatable(), 1);
 				int syntaxval = static_cast<int>(syntax);
 				int argcount = lua_gettop(L) - syntaxval;
 				return construct_match<T, meta::pop_front_type_t<meta::function_args_t<Cxs>>...>(onmatch(), L, argcount, 1 + syntaxval, f);
@@ -13511,7 +13895,7 @@ namespace sol {
 		using base_t::lua_state;
 
 		basic_function() = default;
-		template <typename T, meta::enable<meta::neg<std::is_same<meta::unqualified_t<T>, basic_function>>, meta::neg<std::is_same<base_t, stack_reference>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
+		template <typename T, meta::enable<meta::neg<std::is_same<meta::unqualified_t<T>, basic_function>>, meta::neg<std::is_same<base_t, stack_reference>>, meta::neg<std::is_same<lua_nil_t, meta::unqualified_t<T>>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_function(T&& r) noexcept
 		: base_t(std::forward<T>(r)) {
 #ifdef SOL_SAFE_REFERENCES
@@ -13531,6 +13915,9 @@ namespace sol {
 		}
 		basic_function(stack_reference&& r)
 		: basic_function(r.lua_state(), r.stack_index()) {
+		}
+		basic_function(lua_nil_t n)
+		: base_t(n) {
 		}
 		template <typename T, meta::enable<is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_function(lua_State* L, T&& r)
@@ -13753,7 +14140,7 @@ namespace sol {
 		handler_t error_handler;
 
 		basic_protected_function() = default;
-		template <typename T, meta::enable<meta::neg<std::is_same<meta::unqualified_t<T>, basic_protected_function>>, meta::neg<std::is_base_of<proxy_base_tag, meta::unqualified_t<T>>>, meta::neg<std::is_same<base_t, stack_reference>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
+		template <typename T, meta::enable<meta::neg<std::is_same<meta::unqualified_t<T>, basic_protected_function>>, meta::neg<std::is_base_of<proxy_base_tag, meta::unqualified_t<T>>>, meta::neg<std::is_same<base_t, stack_reference>>, meta::neg<std::is_same<lua_nil_t, meta::unqualified_t<T>>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_protected_function(T&& r) noexcept
 		: base_t(std::forward<T>(r)), error_handler(get_default_handler(r.lua_state())) {
 #ifdef SOL_SAFE_REFERENCES
@@ -13818,6 +14205,10 @@ namespace sol {
 			constructor_handler handler{};
 			stack::check<basic_protected_function>(lua_state(), -1, handler);
 #endif // Safety
+		}
+		
+		basic_protected_function(lua_nil_t n)
+			: base_t(n), error_handler(n) {
 		}
 
 		basic_protected_function(lua_State* L, int index = -1)
@@ -14108,7 +14499,11 @@ namespace sol {
 
 		template <typename... Ret, typename... Args>
 		decltype(auto) call(Args&&... args) {
+#ifdef SOL_SAFE_FUNCTION
+			return get<protected_function>().template call<Ret...>(std::forward<Args>(args)...);
+#else
 			return get<function>().template call<Ret...>(std::forward<Args>(args)...);
+#endif // Safe function usage
 		}
 
 		template <typename... Args>
@@ -14121,6 +14516,10 @@ namespace sol {
 			auto p = stack::probe_get_field<std::is_same<meta::unqualified_t<Table>, global_table>::value>(lua_state(), key, lua_gettop(lua_state()));
 			lua_pop(lua_state(), p.levels);
 			return p;
+		}
+
+		int push() const noexcept {
+			return get<reference>().push(lua_state());
 		}
 
 		type get_type() const {
@@ -15275,7 +15674,8 @@ namespace sol {
 			}
 
 			static error_result get_category(std::input_iterator_tag, lua_State* L, T& self, K& key) {
-				if (key < 1) {
+				key += deferred_traits::index_adjustment(L, self);
+				if (key < 0) {
 					return stack::push(L, lua_nil);
 				}
 				auto it = deferred_traits::begin(L, self);
@@ -15283,7 +15683,7 @@ namespace sol {
 				if (it == e) {
 					return stack::push(L, lua_nil);
 				}
-				while (key > 1) {
+				while (key > 0) {
 					--key;
 					++it;
 					if (it == e) {
@@ -15295,10 +15695,10 @@ namespace sol {
 
 			static error_result get_category(std::random_access_iterator_tag, lua_State* L, T& self, K& key) {
 				std::ptrdiff_t len = static_cast<std::ptrdiff_t>(size_start(L, self));
-				if (key < 1 || key > len) {
+				key += deferred_traits::index_adjustment(L, self);
+				if (key < 0 || key >= len) {
 					return stack::push(L, lua_nil);
 				}
-				--key;
 				auto it = std::next(deferred_traits::begin(L, self), key);
 				return get_associative(is_associative(), L, it);
 			}
@@ -15349,14 +15749,15 @@ namespace sol {
 
 			static error_result set_category(std::input_iterator_tag, lua_State* L, T& self, stack_object okey, stack_object value) {
 				decltype(auto) key = okey.as<K>();
+				key += deferred_traits::index_adjustment(L, self);
 				auto e = deferred_traits::end(L, self);
 				auto it = deferred_traits::begin(L, self);
 				auto backit = it;
-				for (; key > 1 && it != e; --key, ++it) {
+				for (; key > 0 && it != e; --key, ++it) {
 					backit = it;
 				}
 				if (it == e) {
-					if (key == 1) {
+					if (key == 0) {
 						return add_copyable(is_copyable(), L, self, std::move(value), meta::has_insert_after<T>::value ? backit : it);
 					}
 					return error_result("out of bounds (too big) for set on '%s'", detail::demangle<T>().c_str());
@@ -15366,10 +15767,10 @@ namespace sol {
 
 			static error_result set_category(std::random_access_iterator_tag, lua_State* L, T& self, stack_object okey, stack_object value) {
 				decltype(auto) key = okey.as<K>();
-				if (key < 1) {
+				if (key <= 0) {
 					return error_result("sol: out of bounds (too small) for set on '%s'", detail::demangle<T>().c_str());
 				}
-				--key;
+				key += deferred_traits::index_adjustment(L, self);
 				std::ptrdiff_t len = static_cast<std::ptrdiff_t>(size_start(L, self));
 				if (key == len) {
 					return add_copyable(is_copyable(), L, self, std::move(value));
@@ -15587,7 +15988,7 @@ namespace sol {
 			static error_result insert_lookup(std::false_type, lua_State* L, T& self, stack_object where, stack_object value) {
 				auto it = deferred_traits::begin(L, self);
 				auto key = where.as<K>();
-				--key;
+				key += deferred_traits::index_adjustment(L, self);
 				std::advance(it, key);
 				self.insert(it, value.as<V>());
 				return {};
@@ -15597,7 +15998,7 @@ namespace sol {
 				auto key = where.as<K>();
 				auto backit = self.before_begin();
 				{
-					--key;
+					key += deferred_traits::index_adjustment(L, self);
 					auto e = deferred_traits::end(L, self);
 					for (auto it = deferred_traits::begin(L, self); key > 0; ++backit, ++it, --key) {
 						if (backit == e) {
@@ -15631,7 +16032,7 @@ namespace sol {
 
 			static error_result erase_integral(std::true_type, lua_State* L, T& self, K& key) {
 				auto it = deferred_traits::begin(L, self);
-				--key;
+				key += deferred_traits::index_adjustment(L, self);
 				std::advance(it, key);
 				self.erase(it);
 
@@ -15664,7 +16065,7 @@ namespace sol {
 			static error_result erase_after_has(std::true_type, lua_State* L, T& self, K& key) {
 				auto backit = self.before_begin();
 				{
-					--key;
+					key += deferred_traits::index_adjustment(L, self);
 					auto e = deferred_traits::end(L, self);
 					for (auto it = deferred_traits::begin(L, self); key > 0; ++backit, ++it, --key) {
 						if (backit == e) {
@@ -15881,6 +16282,10 @@ namespace sol {
 				return stack::push(L, empty_start(L, self));
 			}
 
+			static std::ptrdiff_t index_adjustment(lua_State*, T&) {
+				return static_cast<std::ptrdiff_t>(-1);
+			}
+
 			static int pairs(lua_State* L) {
 				typedef meta::any<is_associative, meta::all<is_lookup, meta::neg<is_matched_lookup>>> is_assoc;
 				return pairs_associative<false>(is_assoc(), L);
@@ -15974,10 +16379,10 @@ namespace sol {
 			static int get(lua_State* L) {
 				T& self = get_src(L);
 				std::ptrdiff_t idx = stack::get<std::ptrdiff_t>(L, 2);
-				if (idx > static_cast<std::ptrdiff_t>(std::extent<T>::value) || idx < 1) {
+				idx += deferred_traits::index_adjustment(L, self);
+				if (idx >= static_cast<std::ptrdiff_t>(std::extent<T>::value) || idx < 0) {
 					return stack::push(L, lua_nil);
 				}
-				--idx;
 				return stack::push_reference(L, detail::deref(self[idx]));
 			}
 
@@ -15988,13 +16393,13 @@ namespace sol {
 			static int set(lua_State* L) {
 				T& self = get_src(L);
 				std::ptrdiff_t idx = stack::get<std::ptrdiff_t>(L, 2);
-				if (idx > static_cast<std::ptrdiff_t>(std::extent<T>::value)) {
+				idx += deferred_traits::index_adjustment(L, self);
+				if (idx >= static_cast<std::ptrdiff_t>(std::extent<T>::value)) {
 					return luaL_error(L, "sol: index out of bounds (too big) for set on '%s'", detail::demangle<T>().c_str());
 				}
-				if (idx < 1) {
+				if (idx < 0) {
 					return luaL_error(L, "sol: index out of bounds (too small) for set on '%s'", detail::demangle<T>().c_str());
 				}
-				--idx;
 				self[idx] = stack::get<value_type>(L, 3);
 				return 0;
 			}
@@ -16025,6 +16430,10 @@ namespace sol {
 
 			static int ipairs(lua_State* L) {
 				return pairs(L);
+			}
+
+			static std::ptrdiff_t index_adjustment(lua_State*, T&) {
+				return -1;
 			}
 
 			static iterator begin(lua_State*, T& self) {
@@ -16640,8 +17049,20 @@ namespace sol {
 #include <cstdio>
 #include <bitset>
 
+#ifdef SOL_USE_BOOST
+#include <boost/unordered_map.hpp>
+#endif // Using Boost
+
 namespace sol {
 	namespace usertype_detail {
+#ifdef SOL_USE_BOOST
+		template <typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<>>
+		using map_t = boost::unordered_map<K, V, H, E>;
+#else
+		template <typename K, typename V, typename H = std::hash<K>, typename E = std::equal_to<>>
+		using map_t = std::unordered_map<K, V, H, E>;
+#endif // Boost map target
+
 		const int metatable_index = 2;
 		const int metatable_core_index = 3;
 		const int filler_index = 4;
@@ -16666,8 +17087,8 @@ namespace sol {
 			: index(index), new_index(newindex), runtime_target(runtimetarget) {
 			}
 		};
-
-		typedef std::unordered_map<std::string, call_information> mapping_t;
+		
+		typedef map_t<std::string, call_information> mapping_t;
 
 		struct variable_wrapper {
 			virtual int index(lua_State* L) = 0;
@@ -16693,8 +17114,8 @@ namespace sol {
 			}
 		};
 
-		typedef std::unordered_map<std::string, std::unique_ptr<variable_wrapper>> variable_map;
-		typedef std::unordered_map<std::string, object> function_map;
+		typedef map_t<std::string, std::unique_ptr<variable_wrapper>> variable_map;
+		typedef map_t<std::string, object> function_map;
 
 		struct simple_map {
 			const char* metakey;
@@ -16815,8 +17236,8 @@ namespace sol {
 		inline int indexing_fail(lua_State* L) {
 			if (is_index) {
 #if 0 //def SOL_SAFE_USERTYPE
-				auto maybeaccessor = stack::get<optional<string_detail::string_shim>>(L, is_index ? -1 : -2);
-				string_detail::string_shim accessor = maybeaccessor.value_or(string_detail::string_shim("(unknown)"));
+				auto maybeaccessor = stack::get<optional<string_view>>(L, is_index ? -1 : -2);
+				string_view accessor = maybeaccessor.value_or(string_detail::string_shim("(unknown)"));
 				return luaL_error(L, "sol: attempt to index (get) nil value \"%s\" on userdata (bad (misspelled?) key name or does not exist)", accessor.data());
 #else
 				if (is_toplevel(L)) {
@@ -16846,13 +17267,21 @@ namespace sol {
 					if (is_simple) {
 						simple_map& sm = stack::get<user<simple_map>>(L, upvalue_index(simple_metatable_index));
 						function_map& functions = sm.functions;
-						optional<std::string> maybeaccessor = stack::get<optional<std::string>>(L, 2);
+						optional<string_view> maybeaccessor = stack::get<optional<string_view>>(L, 2);
 						if (!maybeaccessor) {
 							return;
 						}
-						std::string& accessor = maybeaccessor.value();
+						string_view& accessor_view = maybeaccessor.value();
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+						auto preexistingit = functions.find(accessor_view, string_view_hash(), std::equal_to<string_view>());
+#else
+						std::string accessor(accessor_view.data(), accessor_view.size());
 						auto preexistingit = functions.find(accessor);
+#endif
 						if (preexistingit == functions.cend()) {
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+							std::string accessor(accessor_view.data(), accessor_view.size());
+#endif
 							functions.emplace_hint(preexistingit, std::move(accessor), object(L, 3));
 						}
 						else {
@@ -16864,18 +17293,26 @@ namespace sol {
 					bool mustindex = umc.mustindex;
 					if (!mustindex)
 						return;
-					optional<std::string> maybeaccessor = stack::get<optional<std::string>>(L, 2);
+					optional<string_view> maybeaccessor = stack::get<optional<string_view>>(L, 2);
 					if (!maybeaccessor) {
 						return;
 					}
-					std::string& accessor = maybeaccessor.value();
+					string_view& accessor_view = maybeaccessor.value();
 					mapping_t& mapping = umc.mapping;
 					std::vector<object>& runtime = umc.runtime;
 					int target = static_cast<int>(runtime.size());
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+					auto preexistingit = mapping.find(accessor_view, string_view_hash(), std::equal_to<string_view>());
+#else
+					std::string accessor(accessor_view.data(), accessor_view.size());
 					auto preexistingit = mapping.find(accessor);
+#endif
 					if (preexistingit == mapping.cend()) {
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+						std::string accessor(accessor_view.data(), accessor_view.size());
+#endif
 						runtime.emplace_back(L, 3);
-						mapping.emplace_hint(mapping.cend(), accessor, call_information(&runtime_object_call, &runtime_new_index, target));
+						mapping.emplace_hint(mapping.cend(), std::move(accessor), call_information(&runtime_object_call, &runtime_new_index, target));
 					}
 					else {
 						target = preexistingit->second.runtime_target;
@@ -17158,8 +17595,13 @@ namespace sol {
 			int runtime_target = 0;
 			usertype_detail::member_search member = nullptr;
 			{
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+				string_view name = stack::get<string_view>(L, keyidx);
+				auto memberit = f.mapping.find(name, string_view_hash(), std::equal_to<string_view>());
+#else
 				std::string name = stack::get<std::string>(L, keyidx);
 				auto memberit = f.mapping.find(name);
+#endif
 				if (memberit != f.mapping.cend()) {
 					const usertype_detail::call_information& ci = memberit->second;
 					member = is_index ? ci.index : ci.new_index;
@@ -17440,8 +17882,13 @@ namespace sol {
 			string_view accessor = stack::get<string_view>(L, keyidx);
 			variable_wrapper* varwrap = nullptr;
 			{
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+				string_view& accessorkey = accessor;
+				auto vit = variables.find(accessorkey, string_view_hash(), std::equal_to<string_view>());
+#else
 				std::string accessorkey(accessor.data(), accessor.size());
 				auto vit = variables.find(accessorkey);
+#endif // Compatible Hash
 				if (vit != variables.cend()) {
 					varwrap = vit->second.get();
 				}
@@ -17451,8 +17898,13 @@ namespace sol {
 			}
 			bool function_failed = false;
 			{
+#ifdef SOL_UNORDERED_MAP_COMPATIBLE_HASH
+				string_view& accessorkey = accessor;
+				auto fit = functions.find(accessorkey, string_view_hash(), std::equal_to<string_view>());
+#else
 				std::string accessorkey(accessor.data(), accessor.size());
 				auto fit = functions.find(accessorkey);
+#endif // Compatible Hash
 				if (fit != functions.cend()) {
 					object& func = fit->second;
 					if (is_index) {
@@ -18344,13 +18796,16 @@ namespace sol {
 		}
 
 	protected:
+		basic_table_core(detail::no_safety_tag, lua_nil_t n)
+		: base_t(n) {
+		}
 		basic_table_core(detail::no_safety_tag, lua_State* L, int index)
 		: base_t(L, index) {
 		}
 		basic_table_core(detail::no_safety_tag, lua_State* L, ref_index index)
 		: base_t(L, index) {
 		}
-		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_table_core>>, meta::neg<std::is_same<base_type, stack_reference>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
+		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_table_core>>, meta::neg<std::is_same<base_type, stack_reference>>, meta::neg<std::is_same<lua_nil_t, meta::unqualified_t<T>>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_table_core(detail::no_safety_tag, T&& r) noexcept
 		: base_t(std::forward<T>(r)) {
 		}
@@ -18406,7 +18861,7 @@ namespace sol {
 			stack::check<basic_table_core>(lua_state(), -1, handler);
 #endif // Safety
 		}
-		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_table_core>>, meta::neg<std::is_same<base_type, stack_reference>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
+		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_table_core>>, meta::neg<std::is_same<base_type, stack_reference>>, meta::neg<std::is_same<lua_nil_t, meta::unqualified_t<T>>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_table_core(T&& r) noexcept
 		: basic_table_core(detail::no_safety, std::forward<T>(r)) {
 #ifdef SOL_SAFE_REFERENCES
@@ -18416,6 +18871,9 @@ namespace sol {
 				stack::check<basic_table_core>(base_t::lua_state(), -1, handler);
 			}
 #endif // Safety
+		}
+		basic_table_core(lua_nil_t r) noexcept
+		: basic_table_core(detail::no_safety, r) {
 		}
 
 		iterator begin() const {
@@ -18612,7 +19070,7 @@ namespace sol {
 
 		template <typename T, bool read_only = true>
 		table new_enum(const string_view& name, std::initializer_list<std::pair<string_view, T>> items) {
-			table target = create(items.size(), 0);
+			table target = create(static_cast<int>(items.size()), static_cast<int>(0));
 			for (const auto& kvp : items) {
 				target.set(kvp.first, kvp.second);
 			}
@@ -18849,7 +19307,7 @@ namespace sol {
 			stack::check<basic_environment>(L, -1, handler);
 #endif // Safety
 		}
-		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_environment>>, meta::neg<std::is_same<base_type, stack_reference>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
+		template <typename T, meta::enable<meta::neg<meta::any_same<meta::unqualified_t<T>, basic_environment>>, meta::neg<std::is_same<base_type, stack_reference>>, meta::neg<std::is_same<lua_nil_t, meta::unqualified_t<T>>>, is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_environment(T&& r) noexcept
 		: base_t(detail::no_safety, std::forward<T>(r)) {
 #ifdef SOL_SAFE_REFERENCES
@@ -18860,6 +19318,10 @@ namespace sol {
 			}
 #endif // Safety
 		}
+		basic_environment(lua_nil_t r) noexcept
+		: base_t(detail::no_safety, r) {
+		}
+
 		template <typename T, meta::enable<is_lua_reference<meta::unqualified_t<T>>> = meta::enabler>
 		basic_environment(lua_State* L, T&& r) noexcept
 			: base_t(detail::no_safety, L, std::forward<T>(r)) {
@@ -19141,14 +19603,14 @@ namespace sol {
 		return result;
 	}
 
-	inline protected_function_result script_default_on_error(lua_State* L, protected_function_result pfr) {
-		type t = type_of(L, pfr.stack_index());
+	inline protected_function_result script_throw_on_error(lua_State*L, protected_function_result result) {
+		type t = type_of(L, result.stack_index());
 		std::string err = "sol: ";
-		err += to_string(pfr.status());
+		err += to_string(result.status());
 		err += " error:";
 		if (t == type::string) {
 			err += " ";
-			string_view serr = stack::get<string_view>(L, pfr.stack_index());
+			string_view serr = stack::get<string_view>(L, result.stack_index());
 			err.append(serr.data(), serr.size());
 		}
 #ifdef SOL_NO_EXCEPTIONS
@@ -19161,7 +19623,15 @@ namespace sol {
 		// just throw our error
 		throw error(detail::direct_error, err);
 #endif
-		return pfr;
+		return result;
+	}
+
+	inline protected_function_result script_default_on_error(lua_State* L, protected_function_result pfr) {
+#ifdef SOL_DEFAULT_PASS_ON_ERROR
+		return script_pass_on_error(L, std::move(pfr));
+#else
+		return script_throw_on_error(L, std::move(pfr));
+#endif
 	}
 
 	class state_view {
@@ -19392,7 +19862,7 @@ namespace sol {
 			return pf();
 		}
 
-		template <typename Fx, meta::disable<meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
+		template <typename Fx, meta::disable_any<meta::is_string_constructible<meta::unqualified_t<Fx>>, meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
 		protected_function_result safe_script(const string_view& code, Fx&& on_error, const std::string& chunkname = detail::default_chunk_name(), load_mode mode = load_mode::any) {
 			protected_function_result pfr = do_string(code, chunkname, mode);
 			if (!pfr.valid()) {
@@ -19419,7 +19889,7 @@ namespace sol {
 			return safe_script(code, script_default_on_error, chunkname, mode);
 		}
 
-		template <typename Fx, meta::disable<meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
+		template <typename Fx, meta::disable_any<meta::is_string_constructible<meta::unqualified_t<Fx>>, meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
 		protected_function_result safe_script_file(const std::string& filename, Fx&& on_error, load_mode mode = load_mode::any) {
 			protected_function_result pfr = do_file(filename, mode);
 			if (!pfr.valid()) {
@@ -19494,12 +19964,12 @@ namespace sol {
 			return unsafe_function_result(L, (std::max)(postindex - (returns - 1), 1), returns);
 		}
 
-		template <typename Fx, meta::disable<meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
+		template <typename Fx, meta::disable_any<meta::is_string_constructible<meta::unqualified_t<Fx>>, meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
 		protected_function_result script(const string_view& code, Fx&& on_error, const std::string& chunkname = detail::default_chunk_name(), load_mode mode = load_mode::any) {
 			return safe_script(code, std::forward<Fx>(on_error), chunkname, mode);
 		}
 
-		template <typename Fx, meta::disable<meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
+		template <typename Fx, meta::disable_any<meta::is_string_constructible<meta::unqualified_t<Fx>>, meta::is_specialization_of<basic_environment, meta::unqualified_t<Fx>>> = meta::enabler>
 		protected_function_result script_file(const std::string& filename, Fx&& on_error, load_mode mode = load_mode::any) {
 			return safe_script_file(filename, std::forward<Fx>(on_error), mode);
 		}
@@ -19707,13 +20177,13 @@ namespace sol {
 		}
 
 		template <bool read_only = true, typename... Args>
-		state_view& new_enum(const std::string& name, Args&&... args) {
+		state_view& new_enum(const string_view& name, Args&&... args) {
 			global.new_enum<read_only>(name, std::forward<Args>(args)...);
 			return *this;
 		}
 
 		template <typename T, bool read_only = true>
-		state_view& new_enum(const std::string& name, std::initializer_list<std::pair<string_view, T>> items) {
+		state_view& new_enum(const string_view& name, std::initializer_list<std::pair<string_view, T>> items) {
 			global.new_enum<T, read_only>(name, std::move(items));
 			return *this;
 		}
