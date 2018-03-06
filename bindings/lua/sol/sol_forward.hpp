@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 
-// Copyright (c) 2013-2017 Rapptz, ThePhD and contributors
+// Copyright (c) 2013-2018 Rapptz, ThePhD and contributors
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
 // this software and associated documentation files (the "Software"), to deal in
@@ -20,8 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // This file was generated with a script.
-// Generated 2018-02-05 00:55:01.877796 UTC
-// This header was generated with sol v2.19.0 (revision c9980bf)
+// Generated 2018-03-06 03:55:05.939310 UTC
+// This header was generated with sol v2.19.5 (revision 68738cd)
 // https://github.com/ThePhD/sol2
 
 #ifndef SOL_SINGLE_INCLUDE_FORWARD_HPP
