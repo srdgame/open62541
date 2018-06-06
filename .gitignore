@@ -17,6 +17,7 @@
 *.gcno
 *.gcda
 *.swp
+*.d
 .dirstamp
 /bin
 m4
