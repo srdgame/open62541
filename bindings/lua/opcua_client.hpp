@@ -643,7 +643,7 @@ void reg_opcua_client(sol::table& module) {
 
 	module.new_usertype<UA_Client_Proxy>("Client",
 		//sol::constructors<UA_Client_Proxy(UA_UInt32, UA_UInt32, UA_ConnectionConfig)>(),
-		sol::constructors<UA_Client_Proxy(const char*, UA_UInt32, UA_UInt32, UA_ConnectionConfig, const char*, const char*, const char*, const char*)>(),
+		sol::constructors<UA_Client_Proxy(const char*, UA_UInt32, UA_UInt32, UA_ConnectionConfig), UA_Client_Proxy(const char*, UA_UInt32, UA_UInt32, UA_ConnectionConfig, const char*, const char*, const char*, const char*)>(),
 		"getState", &UA_Client_Proxy::getState,
 		"reset", &UA_Client_Proxy::reset,
 		"connect", &UA_Client_Proxy::connect,
