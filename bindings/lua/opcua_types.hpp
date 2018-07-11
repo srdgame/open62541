@@ -305,12 +305,30 @@ void reg_opcua_types(sol::table& module) {
 	module.new_usertype<UA_QualifiedName>("QualifiedName",
 		"new", sol::factories([](int ns, const char* val) { return UA_QUALIFIEDNAME_ALLOC(ns, val); }),
 		"__gc", sol::destructor(UA_QualifiedName_deleteMembers),
-		"__eq", [](const UA_QualifiedName& left, const UA_QualifiedName& right) { return left.namespaceIndex == right.namespaceIndex & UA_String_equal(&left.name, &right.name); }
+		"__eq", [](const UA_QualifiedName& left, const UA_QualifiedName& right) {
+			return left.namespaceIndex == right.namespaceIndex & UA_String_equal(&left.name, &right.name);
+		},
+		"__tostring", [](const UA_QualifiedName& obj) { 
+			std::stringstream ss;
+			ss << "QualifiedName(namespaceIndex=" << obj.namespaceIndex;
+			ss << ";name=" << std::string((char*)obj.name.data, obj.name.length) << ")";
+			return ss.str();
+		},
+		"name", [](const UA_QualifiedName& obj) { return obj.name; },
+		"namespaceIndex", [](const UA_QualifiedName& obj) { return obj.namespaceIndex; }
 	);
 
 	module.new_usertype<UA_LocalizedText>("LocalizedText",
 		"new", sol::factories([](const char* locale, const char* text) { return UA_LOCALIZEDTEXT_ALLOC(locale, text); }),
-		"__gc", sol::destructor(UA_LocalizedText_deleteMembers)
+		"__gc", sol::destructor(UA_LocalizedText_deleteMembers),
+		"__tostring", [](const UA_LocalizedText& obj) {
+			std::stringstream ss;
+			ss << "LocalizedText(locale=" << std::string((char*)obj.locale.data, obj.locale.length);
+			ss << ";text=" << std::string((char*)obj.text.data, obj.text.length) << ")";
+			return ss.str();
+		},
+		"text", [](const UA_LocalizedText& obj) { return obj.text; },
+		"locale", [](const UA_LocalizedText& obj) { return obj.locale; }
 	);
 
 	module.new_usertype<UA_ObjectAttributes>("ObjectAttributes",
