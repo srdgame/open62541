@@ -314,8 +314,8 @@ void reg_opcua_types(sol::table& module) {
 			ss << ";name=" << std::string((char*)obj.name.data, obj.name.length) << ")";
 			return ss.str();
 		},
-		"name", [](const UA_QualifiedName& obj) { return obj.name; },
-		"namespaceIndex", [](const UA_QualifiedName& obj) { return obj.namespaceIndex; }
+		"name", sol::property([](const UA_QualifiedName& obj) { return std::string((char*)obj.name.data, obj.name.length); }),
+		"namespaceIndex", sol::property([](const UA_QualifiedName& obj) { return obj.namespaceIndex; })
 	);
 
 	module.new_usertype<UA_LocalizedText>("LocalizedText",
@@ -327,8 +327,8 @@ void reg_opcua_types(sol::table& module) {
 			ss << ";text=" << std::string((char*)obj.text.data, obj.text.length) << ")";
 			return ss.str();
 		},
-		"text", [](const UA_LocalizedText& obj) { return obj.text; },
-		"locale", [](const UA_LocalizedText& obj) { return obj.locale; }
+		"text", sol::property([](const UA_LocalizedText& obj) { return std::string((char*)obj.text.data, obj.text.length); }),
+		"locale", sol::property([](const UA_LocalizedText& obj) { return std::string((char*)obj.locale.data, obj.locale.length); })
 	);
 
 	module.new_usertype<UA_ObjectAttributes>("ObjectAttributes",

@@ -89,7 +89,7 @@ public:
 	UA_NodeId _referenceType;
 	UA_NodeClass _class;
 
-	~UA_Node() {
+	virtual ~UA_Node() {
 		UA_NodeId_deleteMembers(&_id);
 		UA_NodeId_deleteMembers(&_referenceType);
 	}
@@ -109,7 +109,7 @@ public:
         return *this;
 	}
 
-	operator std::string() {
+	operator std::string() const {
 		std::stringstream ss;
 		ss << "Node(id=" << toString(_id) << ";type=" << toString(_referenceType) << ";class=" << _class << ")";
 		return ss.str();
@@ -194,25 +194,22 @@ public:
 		UA_NodeId_deleteMembers(&referenceTypeId);
 		RETURN_RESULT(bool, true)
 	}
-
-	std::vector<UA_Node> getChildren() const {
+	sol::as_table_t< std::vector<UA_Node> > getChildren() const {
+		//std::cout << "getChildren\t" << toString(_id) << "\t" << toString(_referenceType) << std::endl;
 		UA_Node_Iter iter(this);
 		UA_StatusCode re = _mgr->forEachChildNodeCall(_id, UA_Node_IteratorCallback, &iter);
 		UA_NodeClass outNodeClass;
 		auto reader = _mgr->getAttributeReader();
-		for (auto &node : iter._childs) {
+		for (auto & node : iter._childs) {
 			auto ret = reader->readNodeClass(node._id, &outNodeClass);
 			if (UA_STATUSCODE_GOOD == ret) {
 				node._class = outNodeClass;
-				std::cout << "!!!! Read NodeClass\t" << outNodeClass << "\t" << node._class << std::endl;
+				//std::cout << "!!!! Read NodeClass\t" << outNodeClass << "\t" << node._class << std::endl;
 			} else {
-				std::cout << "Failed to read NodeClass\t" << ret << std::endl;
+				//std::cout << "Failed to read NodeClass\t" << ret << std::endl;
 			}
 		}
-		for (auto node : iter._childs) {
-			std::cout << "NodeClass\t" << node._class << std::endl;
-		}
-		return iter._childs;
+		return sol::as_table_t< std::vector<UA_Node> >( iter._childs );
 	}
 	bool _getChild(const std::string& name, std::vector<UA_Node>& result) {
 		UA_Node_Finder op(this, name, _mgr->getAttributeReader());
@@ -225,9 +222,9 @@ public:
 				auto ret = reader->readNodeClass(node._id, &outNodeClass);
 				if (UA_STATUSCODE_GOOD == ret) {
 					node._class = outNodeClass;
-					std::cout << "Read NodeClass\t" << outNodeClass << "\t" << node._class << std::endl;
+					//std::cout << "Read NodeClass\t" << outNodeClass << "\t" << node._class << std::endl;
 				} else {
-					std::cout << "Failed to read NodeClass\t" << ret << std::endl;
+					//std::cout << "Failed to read NodeClass\t" << ret << std::endl;
 				}
 			}
 		}
@@ -239,7 +236,7 @@ public:
 		std::vector<UA_Node> nodes;
 		bool found = _getChild(name, nodes);
 		if (found) { 
-			for(auto node : nodes) {
+			for(auto & node : nodes) {
 				result.push_back({ L, sol::in_place_type<UA_Node>, node});
 			}
 		} else {
@@ -302,8 +299,13 @@ public:
 };
 
 UA_StatusCode UA_Node_Iter::operator()(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId) {
+	if (isInverse)
+		return UA_STATUSCODE_GOOD;
+
+	std::cout << "UA_Node_Iter\t" << toString(childId) << "\t" << toString(referenceTypeId) << std::endl;
 	UA_Node node(_parent->_mgr, childId, referenceTypeId, UA_NODECLASS_UNSPECIFIED);
 	_childs.push_back(node);
+	return UA_STATUSCODE_GOOD;
 }
 
 UA_Node_Finder::UA_Node_Finder(const UA_Node* parent, const std::string& name, AttributeReader* reader)
@@ -344,11 +346,11 @@ UA_StatusCode UA_Node_IteratorCallback(UA_NodeId childId, UA_Boolean isInverse, 
 
 void reg_opcua_node(sol::table& module) {
 	module.new_usertype<UA_Node>("Node",
-		"new", sol::no_constructor,
+		//"new", sol::no_constructor,
 		"id", sol::readonly(&UA_Node::_id),
-		"__tostring", [](UA_Node& node) { return (std::string)node; },
-		"nodeClass", &UA_Node::_class,
-		"nodeMgr", &UA_Node::_mgr,
+		"__tostring", [](const UA_Node& node) { return (std::string)node; },
+		"nodeClass", sol::readonly(&UA_Node::_class),
+		"nodeMgr", sol::readonly(&UA_Node::_mgr),
 		"deleteNode", &UA_Node::deleteNode,
 		"addFolder", &UA_Node::addFolder,
 		"addObject", &UA_Node::addObject,
