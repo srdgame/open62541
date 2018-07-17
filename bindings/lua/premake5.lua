@@ -9,7 +9,7 @@ project "opcua"
 	targetprefix ""
 	targetdir "bin/%{cfg.buildcfg}"
 
-	--includedirs { "/usr/include/lua5.3", ".", "../../" }
+	--includedirs { "/usr/include/lua5.3", ".", "../../build/" }
 	includedirs { "/home/cch/mycode/skynet/3rd/lua/", ".", "../..", "../../build/" }
 	files { "**.hpp", "**.cpp"}
 
