@@ -128,13 +128,6 @@ void reg_opcua_types(sol::table& module) {
 				UA_String_deleteMembers(&str);
 				return var;
 			},
-			[](const UA_DateTime& val) {
-				std::cout << "UA_DateTime" << std::endl;
-				UA_Variant var;
-				UA_Variant_init(&var);
-				UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_DATETIME]);
-				return var;
-			},
 			[](const UA_Variant& obj) {
 				UA_Variant var;
 				UA_Variant_init(&var);
@@ -155,6 +148,7 @@ void reg_opcua_types(sol::table& module) {
 		"uint32", sol::initializers([](UA_Variant& var, uint32_t val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_UINT32]);}),
 		"int64", sol::initializers([](UA_Variant& var, int64_t val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_INT64]);}),
 		"uint64", sol::initializers([](UA_Variant& var, uint64_t val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_UINT64]);}),
+		"datetime", sol::initializers([](UA_Variant& var, UA_DateTime val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_DATETIME]);}),
 
 		"__gc", sol::destructor(UA_Variant_deleteMembers),
 		"isEmpty", [](UA_Variant& var) { return UA_Variant_isEmpty(&var); },

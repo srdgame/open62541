@@ -42,7 +42,7 @@ local myvar = newobject:addVariable(opcua.NodeId.new(idx, 98), "MyVariable", att
 local attr = opcua.VariableAttributes.new()
 attr.displayName = opcua.LocalizedText.new("en_US", "My Time Ticker")
 attr.description = opcua.LocalizedText.new("en_US", "My Time Ticker Description")
-attr.value = opcua.Variant.new(opcua.DateTime.now())
+attr.value = opcua.Variant.datetime(opcua.DateTime.now())
 local mytick = newobject:addVariable(opcua.NodeId.new(idx, 101), "MyTimeTick", attr)
 
 local attr = opcua.VariableAttributes.new()
@@ -71,7 +71,7 @@ print("Ctrl-C to exit")
 server:addCallback(function()
 	counter = counter + 1
 	local n = opcua.DateTime.now()
-	mytick:setValue(opcua.Variant.new(n))
+	mytick:setValue(opcua.Variant.datetime(n))
 	print('callback', mytick.value, n)
 end, 1000)
 
