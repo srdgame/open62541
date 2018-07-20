@@ -431,6 +431,14 @@ public:
 	UA_UInt16 addNamespace(const std::string& namespaceUri) {
 		return UA_Server_addNamespace(_server, namespaceUri.c_str());
 	}
+	sol::variadic_results getNamespaceByName(const std::string& namespaceUri, sol::this_state L) {
+		size_t index = 0;
+		UA_String uri = UA_STRING((char*)namespaceUri.c_str());
+		UA_StatusCode re = UA_Server_getNamespaceByName(_server, uri, &index);
+		RETURN_RESULT(size_t, index)
+	}
+	// TODO: UA_Server_getConfig
+	//
 	ServerNodeMgr* getNodeMgr() {
 		return _mgr;
 	}
