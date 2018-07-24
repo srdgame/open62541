@@ -11,7 +11,7 @@ project "opcua"
 
 	--includedirs { "/usr/include/lua5.3", ".", "../../" }
 	includedirs { "/home/cch/mycode/skynet/3rd/lua/", ".", "../..", "../../build_mips" }
-	files { "**.hpp", "**.cpp"}
+	files { "./src/**.hpp", "./src/**.cpp"}
 
 	-- buildoptions { '-Wno-unknown-warning', '-Wno-unknown-warning-option', '-Wall', '-Wextra', '-Wpedantic', '-pedantic', '-pedantic-errors', '-Wno-noexcept-type', '-std=c++14', '-ftemplate-depth=1024' }
 	buildoptions { '-Wpedantic', '-pedantic', '-pedantic-errors', '-DSOL_NO_EXCEPTIONS=1', '-std=c++14', '-ftemplate-depth=2048', '-DUA_ARCHITECTURE_POSIX'}
