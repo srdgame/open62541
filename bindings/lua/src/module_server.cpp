@@ -1,4 +1,3 @@
-#pragma once
 #include <iostream>
 #include <list>
 
@@ -8,7 +7,7 @@
 #include "sol/sol.hpp"
 
 #include "opcua_interfaces.hpp"
-#include "opcua_node.hpp"
+#include "module_node.hpp"
 
 namespace lua_opcua {
 
