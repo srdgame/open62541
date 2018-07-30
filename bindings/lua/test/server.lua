@@ -56,6 +56,7 @@ attr.userWriteMask = opcua.WriteMask.ALL
 attr.accessLevel = opcua.AccessLevel.RW
 --attr.userAccessLevel = opcua.AccessLevel.READ ~ opcua.AccessLevel.READ
 local myprop = newobject:addVariable(opcua.NodeId.new(idx, 97), "MyProperty", attr)
+myprop.displayName = opcua.LocalizedText.new("en_US", "AAAAAAAAAAAAA")
 
 local root = server:getRootNode()
 print("Root node is", root)
@@ -71,8 +72,8 @@ print("Ctrl-C to exit")
 server:addCallback(function()
 	counter = counter + 1
 	local n = opcua.DateTime.now()
-	mytick:setValue(opcua.Variant.datetime(n))
-	print('callback', mytick.value, n)
+	mytick.value = opcua.Variant.datetime(n)
+	print('callback', mytick.value:asDateTime(), n)
 end, 1000)
 
 
