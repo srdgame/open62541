@@ -2,12 +2,13 @@
 
 ## Functions
 
-* [setLogger](#setLogger)
-* [getStatusCodeName](#getStatusCodeName)
+* [setLogger](#setlogger)
+* [getStatusCodeName](#getstatuscodename)
 
-##### setLogger
+#### setLogger
 > Set logger callback method
 
+_Usage:_
 ``` lua
 local opcua = require 'opcua'
 opcua.setLogger(function(level, category, msg)
@@ -15,10 +16,10 @@ opcua.setLogger(function(level, category, msg)
 end)
 ```
 
-##### getStatusCodeName
-
+#### getStatusCodeName
 > Get cosponding string name of UA_StatusCode enums
 
+_Usage:_
 ``` lua
 local r = client:connect()
 print(opcua.getStatusCodeName(r))
