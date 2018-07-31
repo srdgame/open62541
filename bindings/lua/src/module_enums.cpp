@@ -4,16 +4,26 @@
 #define SOL_CHECK_ARGUMENTS 1
 #include "sol/sol.hpp"
 
+/****
+ * opcua enums
+ * @module opcua.enums
+ */
+
 namespace lua_opcua {
 
 void reg_opcua_enums(sol::table& module) {
+	/***
+	 * UA_ClientState enum
+	 * @table UA_ClientState
+	 */
 	module.new_enum("UA_ClientState",
-		"DISCONNECTED", UA_ClientState::UA_CLIENTSTATE_DISCONNECTED,
-		"CONNECTED", UA_ClientState::UA_CLIENTSTATE_CONNECTED,
-		"SECURECHANNEL", UA_ClientState::UA_CLIENTSTATE_SECURECHANNEL,
-		"SESSION", UA_ClientState::UA_CLIENTSTATE_SESSION,
-		"SESSION_RENEWED", UA_ClientState::UA_CLIENTSTATE_SESSION_RENEWED
+		"DISCONNECTED", UA_ClientState::UA_CLIENTSTATE_DISCONNECTED, /// @field DISCONNECTED Disconnected
+		"CONNECTED", UA_ClientState::UA_CLIENTSTATE_CONNECTED, /// @field CONNECTED Connected
+		"SECURECHANNEL", UA_ClientState::UA_CLIENTSTATE_SECURECHANNEL, /// @field SECURECHANNEL Secure channel
+		"SESSION", UA_ClientState::UA_CLIENTSTATE_SESSION, /// @filed SESSION - UA_CLIENTSTATE_SESSION
+		"SESSION_RENEWED", UA_ClientState::UA_CLIENTSTATE_SESSION_RENEWED /// @field SESSION_RENEWED - UA_CLIENTSTATE_SESSION_RENEWED
 	);
+
 	module.new_enum("VariantType",
 		"BOOLEAN", UA_TYPES_BOOLEAN,
 		"SBYTE", UA_TYPES_SBYTE,

@@ -3,6 +3,11 @@
 #define SOL_CHECK_ARGUMENTS 1
 #include "sol/sol.hpp"
 
+/******
+ * opcua module - open62541 lua wrapper
+ * @module opcua
+ *
+ */
 
 namespace lua_opcua {
 	void reg_opcua_enums(sol::table& module);
@@ -42,7 +47,18 @@ namespace lua_opcua {
 		reg_opcua_server(module);
 
 		//module.set_function("setLogger", [&](sol::function logger) { g_ua_logger = logger; });
+
+		/***
+		 * Set logger callback function
+		 * @function setLogger
+		 */
 		module.set_function("setLogger", setLogger);
+		/***
+		 * Get status code name in string
+		 * @function getStatusCodeName
+		 * @tparam StatusCode sc Status code
+		 * @treturn string status code name string
+		 */
 		module.set_function("getStatusCodeName", UA_StatusCode_name);
 
 		return module;

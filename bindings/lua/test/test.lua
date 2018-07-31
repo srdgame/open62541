@@ -1,3 +1,6 @@
+----------------
+-- Test example
+
 local opcua = require 'opcua'
 --[[
 opcua.setLogger(function(...)

@@ -78,11 +78,13 @@ Makefile
 /exampleClient
 /exampleClient_legacy
 /src_generated/
-/build
+/build*
 /.idea
 /cmake-build*
-/tools/certs/certs/*
 Pipfile
 Pipfile.lock
 .vscode
+/bindings/lua/certs/*
+/bindings/lua/doc/*
+/bindings/lua/ldoc/*
 tags

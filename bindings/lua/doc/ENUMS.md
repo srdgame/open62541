@@ -9,7 +9,7 @@ Wrapped without prefix
 * SESSION ( UA_CLIENTSTATE_SESSION )
 * SESSION_RENEWED ( UA_CLIENTSTATE_SESSION_RENEWED )
 
-Usage:
+#### Usage:
 ``` lua
 	local state = opcua.UA_ClientState.DISCONNECTED
 ```
