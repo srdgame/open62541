@@ -85,6 +85,5 @@ Pipfile
 Pipfile.lock
 .vscode
 /bindings/lua/certs/*
-/bindings/lua/doc/*
 /bindings/lua/ldoc/*
 tags
