@@ -546,6 +546,9 @@ public:
 	UA_ClientState getState() {
 		return UA_Client_getState(_client);
 	}
+	UA_ClientConfig* getConfig() {
+		return UA_Client_getConfig(_client);
+	}
 	void reset() {
 		UA_Client_reset(_client);
 	}
@@ -557,9 +560,6 @@ public:
 	}
 	UA_StatusCode disconnect() {
 		return UA_Client_disconnect(_client);
-	}
-	UA_StatusCode manuallyRenewSecureChannel() {
-		return UA_Client_manuallyRenewSecureChannel(_client);
 	}
 	UA_StatusCode getEndpoints(const char* serverUrl, size_t* endpointDescriptionsSize, UA_EndpointDescription** endpointDescriptions) {
 		return UA_Client_getEndpoints(_client, serverUrl, endpointDescriptionsSize, endpointDescriptions);
@@ -644,11 +644,11 @@ void reg_opcua_client(sol::table& module) {
 		//sol::constructors<UA_Client_Proxy(UA_UInt32, UA_UInt32, UA_ConnectionConfig)>(),
 		sol::constructors<UA_Client_Proxy(const char*, UA_UInt32, UA_UInt32, UA_ConnectionConfig), UA_Client_Proxy(const char*, UA_UInt32, UA_UInt32, UA_ConnectionConfig, const char*, const char*, const char*, const char*)>(),
 		"getState", &UA_Client_Proxy::getState,
+		"getConfig", &UA_Client_Proxy::getConfig,
 		"reset", &UA_Client_Proxy::reset,
 		"connect", &UA_Client_Proxy::connect,
 		"connect_username", &UA_Client_Proxy::connect_username,
 		"disconnect", &UA_Client_Proxy::disconnect,
-		"manuallyRenewSecureChannel", &UA_Client_Proxy::manuallyRenewSecureChannel,
 		"getEndpoints", &UA_Client_Proxy::getEndpoints,
 		"findServers", &UA_Client_Proxy::findServers,
 		"getNamespaceIndex", &UA_Client_Proxy::getNamespaceIndex,
