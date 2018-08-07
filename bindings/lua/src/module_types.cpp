@@ -56,8 +56,8 @@ UA_DateTime_toString(UA_DateTime t) {
 void reg_opcua_types(sol::table& module) {
 	module.new_usertype<UA_DateTime>("DateTime",
 		"new", sol::factories([](void) { return UA_DateTime_now(); }),
-		"now", sol::initializers([](UA_DateTime& dt) { dt = UA_DateTime_now(); }),
-		"nowMonotonic", sol::initializers([](UA_DateTime& dt){ dt = UA_DateTime_nowMonotonic(); }),
+		"now", [](void) { return UA_DateTime_now(); },
+		"nowMonotonic", [](void){ return UA_DateTime_nowMonotonic(); },
 		"__tostring", [](const UA_DateTime& date) { return UA_DateTime_toString(date); },
 		"toUnixTime", [](const UA_DateTime& date) { return UA_DateTime_toUnixTime(date); },
 		"fromUnixTime", [](UA_Int64 unixDate) { return UA_DateTime_fromUnixTime(unixDate); },
