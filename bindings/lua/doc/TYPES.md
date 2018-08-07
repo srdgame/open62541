@@ -8,11 +8,11 @@
 * [NodeId](#nodid)
 * [ExpandedNodeId](#expandednodeid)
 * [QualifiedName](#qualifiedname)
-* [LocalizedText](#LocalizedText)
-* [ObjectAttributes](#ObjectAttributes)
-* [VariantAttributes](#VariantAttributes)
-* [ViewAttributes](#ViewAttributes)
-* [MethodAttributes](#MethodAttributes)
+* [LocalizedText](#localizedtext)
+* [ObjectAttributes](#objectattributes)
+* [VariantAttributes](#variantattributes)
+* [ViewAttributes](#viewattributes)
+* [MethodAttributes](#methodattributes)
 
 ### DateTime
 
