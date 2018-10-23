@@ -11,6 +11,55 @@
 
 namespace lua_opcua {
 
+struct UA_DataSource_Proxy {
+	UA_DataSource _ds;
+
+	typedef std::function<UA_StatusCode (UA_DataSource_Proxy &proxy, const UA_NodeId* sessionId,
+										void *sesssionContext, const UA_NodeId* nodeId, 
+										UA_Boolean includeSourceTimeStamp, const UA_NumericRange *range,
+										UA_DataValue* value) > OnReadCallback;
+
+	typedef std::function<UA_StatusCode (UA_DataSource_Proxy &proxy, const UA_NodeId* sessionId,
+										void *sesssionContext, const UA_NodeId* nodeId, 
+										const UA_NumericRange *range,
+										const UA_DataValue* value) > OnWriteCallback;
+
+	OnReadCallback _read;
+	OnWriteCallback _write;
+
+	static UA_StatusCode ReadCallback(UA_Server *server, const UA_NodeId *sessionId,
+                          void *sessionContext, const UA_NodeId *nodeId,
+                          void *nodeContext, UA_Boolean includeSourceTimeStamp,
+                          const UA_NumericRange *range, UA_DataValue *value) {
+		UA_DataSource_Proxy* p = (UA_DataSource_Proxy*)nodeContext;
+		if (p->_read) {
+			return p->_read(*p, sessionId, sessionContext, nodeId, includeSourceTimeStamp, range, value);
+		} else {
+			return UA_STATUSCODE_BADINTERNALERROR;
+		}
+	}
+
+	static UA_StatusCode WriteCallback(UA_Server *server, const UA_NodeId *sessionId,
+                           void *sessionContext, const UA_NodeId *nodeId,
+                           void *nodeContext, const UA_NumericRange *range,
+                           const UA_DataValue *value) {
+		UA_DataSource_Proxy* p = (UA_DataSource_Proxy*)nodeContext;
+		if (p->_write) {
+			return p->_write(*p, sessionId, sessionContext, nodeId, range, value);
+		} else {
+			return UA_STATUSCODE_BADINTERNALERROR;
+		}
+	}
+	UA_DataSource_Proxy(OnReadCallback onRead, OnWriteCallback onWrite) : _read(onRead), _write(onWrite) {
+		_ds.read = &UA_DataSource_Proxy::ReadCallback;
+		_ds.write = &UA_DataSource_Proxy::WriteCallback;
+	}
+	~UA_DataSource_Proxy() {
+		_read = nullptr;
+		_write = nullptr;
+	}
+};
+
 class ServerAttributeReader : public AttributeReader {
 	UA_Server* _server;
 public:
@@ -213,6 +262,16 @@ public:
 			UA_NodeId *outNewNodeId) {
 		return UA_Server_addVariableNode(_server, requestedNewNodeId, parentNodeId, referenceTypeId, browseName, typeDefinition, attr, NULL, outNewNodeId);
 	}
+	UA_StatusCode addDataSourceVariable(const UA_NodeId requestedNewNodeId,
+			const UA_NodeId parentNodeId,
+			const UA_NodeId referenceTypeId,
+			const UA_QualifiedName browseName,
+			const UA_NodeId typeDefinition,
+			const UA_VariableAttributes attr,
+			UA_DataSource_Proxy dataSource,
+			UA_NodeId *outNewNodeId) {
+		return UA_Server_addDataSourceVariableNode(_server, requestedNewNodeId, parentNodeId, referenceTypeId, browseName, typeDefinition, attr, dataSource._ds, &dataSource, outNewNodeId);
+	}
 	UA_StatusCode addVariableType(const UA_NodeId requestedNewNodeId,
 			const UA_NodeId parentNodeId,
 			const UA_NodeId referenceTypeId,
@@ -289,7 +348,6 @@ public:
 		return UA_Server_forEachChildNodeCall(_server, parentNodeId, callback, handle);
 	}
 };
-
 
 class UA_ServerConfig_Proxy {
 	UA_ServerConfig *_config;
@@ -519,8 +577,11 @@ public:
 		if (pfunc) {
 		}
 		*/
-		UA_Server_setNodeContext(_server, methodNodeId, p);
-		UA_Server_setMethodNode_callback(_server, methodNodeId, &UA_Server_Proxy::MethodCallback);
+		auto ret = UA_Server_setNodeContext(_server, methodNodeId, p);
+		if (UA_STATUSCODE_GOOD == ret)
+			return UA_Server_setMethodNode_callback(_server, methodNodeId, &UA_Server_Proxy::MethodCallback);
+		else
+			return ret;
 	}
 };
 
@@ -568,6 +629,7 @@ void reg_opcua_server(sol::table& module) {
 		"addObject", &ServerNodeMgr::addObject,
 		"addObjectType", &ServerNodeMgr::addObjectType,
 		"addVariable", &ServerNodeMgr::addVariable,
+		"addDataSourceVariable", &ServerNodeMgr::addDataSourceVariable,
 		"addVariableType", &ServerNodeMgr::addVariableType,
 		"addReferenceType", &ServerNodeMgr::addReferenceType,
 		"addDataType", &ServerNodeMgr::addDataType
