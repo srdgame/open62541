@@ -375,7 +375,6 @@ public:
 	}
 };
 
-void UA_LUA_Logger(UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args);
 class UA_Server_Proxy {
 protected:
 	UA_Server_Proxy(UA_Server_Proxy& prox);
@@ -390,7 +389,6 @@ public:
 public:
 	UA_Server_Proxy() {
 		_config = UA_ServerConfig_new_default();
-		_config->logger = UA_LUA_Logger;
 		_config_proxy = new UA_ServerConfig_Proxy(_config);
 
 		_server = UA_Server_new(_config);
@@ -398,7 +396,6 @@ public:
 	}
 	UA_Server_Proxy(int port) {
 		_config = UA_ServerConfig_new_minimal(port, NULL);
-		_config->logger = UA_LUA_Logger;
 		_config_proxy = new UA_ServerConfig_Proxy(_config);
 
 		_server = UA_Server_new(_config);
@@ -408,7 +405,6 @@ public:
 		auto cert_s = UA_BYTESTRING_ALLOC(cert.c_str());
 		_config = UA_ServerConfig_new_minimal(port, &cert_s);
 		UA_ByteString_deleteMembers(&cert_s);
-		_config->logger = UA_LUA_Logger;
 		_config_proxy = new UA_ServerConfig_Proxy(_config);
 
 		_server = UA_Server_new(_config);

@@ -16,26 +16,6 @@ namespace lua_opcua {
 	void reg_opcua_client(sol::table& module);
 	void reg_opcua_server(sol::table& module);
 
-	typedef std::function<void (UA_LogLevel level, UA_LogCategory category, const char *msg)> LogStdFunction;
-	LogStdFunction g_ua_logger = nullptr;
-	/*
-	sol::function g_ua_logger;// = nullptr;
-	*/
-	void setLogger(LogStdFunction logger) {
-		g_ua_logger = logger;
-	}
-	void UA_LUA_Logger(UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args) {
-		if (g_ua_logger && level > UA_LOGLEVEL_INFO) {
-			char *buf = new char[2048];
-			memset(buf, 0, 2048);
-			vsprintf(buf, msg, args);
-			g_ua_logger(level, category, buf);
-			delete[] buf;
-		} else {
-			UA_Log_Stdout(level, category, msg, args);
-		}
-	}
-
 	sol::table open_opcua(sol::this_state L) {
 		sol::state_view lua(L);
 		sol::table module = lua.create_table();
@@ -46,13 +26,6 @@ namespace lua_opcua {
 		reg_opcua_client(module);
 		reg_opcua_server(module);
 
-		//module.set_function("setLogger", [&](sol::function logger) { g_ua_logger = logger; });
-
-		/***
-		 * Set logger callback function
-		 * @function setLogger
-		 */
-		module.set_function("setLogger", setLogger);
 		/***
 		 * Get status code name in string
 		 * @function getStatusCodeName

@@ -329,48 +329,21 @@ public:
 	ClientNodeMgr* _mgr;
 	std::string _endpoint_url;
 	UA_Client_Proxy(const char* endpointUrl, UA_UInt32 timeout, UA_UInt32 secureChannelLifeTime, UA_ConnectionConfig connectionConfig) {
-		UA_ClientConfig config = {
-			timeout, // 5000
-			secureChannelLifeTime, //10 * 60 * 1000	
-			//UA_Log_Stdout,
-			UA_LUA_Logger,
-			connectionConfig, /*
-								 {
-								 0,
-								 65535,
-								 65535,
-								 0,
-								 0,
-								 }
-								 */
-			UA_ClientConnectionTCP,
-			0,
-			NULL
-		};
+		UA_ClientConfig config = UA_ClientConfig_default;
+		config.timeout = timeout; // 5000
+		config.secureChannelLifeTime = secureChannelLifeTime; //10 * 60 * 1000	
+		config.localConnectionConfig = connectionConfig;
 		_endpoint_url = std::string(endpointUrl);
 		_client = UA_Client_new(config);
 		_mgr = new ClientNodeMgr(_client);
 	}
 	UA_Client_Proxy(const char* endpointUrl, UA_UInt32 timeout, UA_UInt32 secureChannelLifeTime, UA_ConnectionConfig connectionConfig,
 			const char* securityPolicy, const char* certificate, const char* privateKey, const char* remoteCertificate) {
-		UA_ClientConfig config = {
-			timeout, // 5000
-			secureChannelLifeTime, //10 * 60 * 1000	
-			//UA_Log_Stdout,
-			UA_LUA_Logger,
-			connectionConfig, /*
-								 {
-								 0,
-								 65535,
-								 65535,
-								 0,
-								 0,
-								 }
-								 */
-			UA_ClientConnectionTCP,
-			0,
-			NULL
-		};
+
+		UA_ClientConfig config = UA_ClientConfig_default;
+		config.timeout = timeout; // 5000
+		config.secureChannelLifeTime = secureChannelLifeTime; //10 * 60 * 1000	
+		config.localConnectionConfig = connectionConfig;
 
 		_endpoint_url = std::string(endpointUrl);
 
