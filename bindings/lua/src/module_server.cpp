@@ -393,12 +393,14 @@ public:
 		UA_ServerConfig *cc = UA_Server_getConfig(_server);
 		UA_ServerConfig_setDefault(cc);
 		_config = new UA_ServerConfig_Proxy(cc);
+		_mgr = new ServerNodeMgr(_server);
 	}
 	UA_Server_Proxy(int port) {
 		_server = UA_Server_new();
 		UA_ServerConfig *cc = UA_Server_getConfig(_server);
 		UA_ServerConfig_setDefault(cc);
 		_config = new UA_ServerConfig_Proxy(cc);
+		_mgr = new ServerNodeMgr(_server);
 	}
 	UA_Server_Proxy(int port, const std::string cert, const std::string pkey) {
 		_server = UA_Server_new();

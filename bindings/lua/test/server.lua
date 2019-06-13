@@ -25,6 +25,7 @@ local idx = server:addNamespace("http://freeioe.org")
 --print(server:GetNamespaceIndex("http://examples.freeopcua.github.io"))
 --print(idx)
 local objects = server:getObjectsNode()
+print(objects)
 local nid = opcua.NodeId.new(idx, 99)
 
 local attr = opcua.ObjectAttributes.new()
