@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "open62541.h"
-#include "examples/common.h"
+#include "read_file.h"
 
 #define SOL_CHECK_ARGUMENTS 1
 #include "sol/sol.hpp"
@@ -321,30 +321,64 @@ static void cleanupClient(UA_Client* client, UA_ByteString* remoteCertificate) {
 }
 
 
-void UA_LUA_Logger(UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args);
-class UA_Client_Proxy {
-	UA_Client_Proxy(UA_Client_Proxy& prox);
+class UA_ClientConfig_Proxy {
+	UA_ClientConfig *_config;
+protected:
+	friend class UA_Client_Proxy;
+
+	UA_ClientConfig_Proxy(UA_ClientConfig *config) : _config(config) {
+	}
 public:
+	void setTimeout(int timeout) {
+		_config->timeout = timeout;
+	}
+	void setSecureChannelLifeTime(int time) {
+		_config->secureChannelLifeTime = time;
+	}
+	void setProductURI(const std::string& uri) {
+		/*
+		UA_String_clear(&_config->buildInfo.productUri);
+		_config->buildInfo.productUri = UA_STRING_ALLOC((char*)uri.c_str())
+		*/
+		UA_String_clear(&_config->clientDescription.productUri);
+		_config->clientDescription.productUri = UA_STRING_ALLOC((char*)uri.c_str());
+	}
+	void setApplicationURI(const std::string& uri) {
+		UA_String_clear(&_config->clientDescription.applicationUri);
+		_config->clientDescription.applicationUri = UA_STRING_ALLOC((char*)uri.c_str());
+	}
+	void setApplicationName(const std::string& locale, const std::string& name) {
+		UA_LocalizedText_clear(&_config->clientDescription.applicationName);
+		_config->clientDescription.applicationName = UA_LOCALIZEDTEXT_ALLOC(locale.c_str(), name.c_str());
+	}
+};
+
+
+class UA_Client_Proxy {
+protected:
+	UA_Client_Proxy(UA_Client_Proxy& prox);
 	UA_Client* _client;
 	ClientNodeMgr* _mgr;
+
+public:
+	UA_ClientConfig_Proxy *_config;
+
 	UA_Client_Proxy() {
 		_client = UA_Client_new();
 		if (!_client) {
 			printf("Initialized UA_Client failure!!!");
 			exit(-1);
 		}
-		UA_ClientConfig_setDefault(UA_Client_getConfig(_client));
+		UA_ClientConfig* cc = UA_Client_getConfig(_client);
+		UA_ClientConfig_setDefault(cc);
 		_mgr = new ClientNodeMgr(_client);
-	}
-	~UA_Client_Proxy() {
-		UA_Client_delete(_client);
-		delete _mgr;
+		_config = new UA_ClientConfig_Proxy(cc);
 	}
 
-	UA_StatusCode setEncryption (const char* securityPolicy, const char* priCert, const char* priKey) {
+	UA_Client_Proxy(UA_MessageSecurityMode securityMode, const std::string& priCert, const std::string& priKey) {
 		/* Load certificate and private key */
-		UA_ByteString certificate = loadFile(priCert);
-		UA_ByteString privateKey  = loadFile(priKey);
+		UA_ByteString certificate = loadFile(priCert.c_str());
+		UA_ByteString privateKey  = loadFile(priKey.c_str());
 
 		/* Load the trustList. Load revocationList is not supported now */
 		/* trust list not support for now
@@ -362,6 +396,7 @@ public:
 		UA_ByteString *revocationList = NULL;
 		size_t revocationListSize = 0;
 
+		_client = UA_Client_new();
 		UA_ClientConfig *cc = UA_Client_getConfig(_client);
 		UA_StatusCode rc = UA_ClientConfig_setDefaultEncryption(cc, certificate, privateKey,
 				trustList, trustListSize,
@@ -377,15 +412,19 @@ public:
 		*/
 
 		/* Secure client connect */
-		cc->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT; /* require encryption */
-		return rc;
+		cc->securityMode = securityMode; /* require encryption */
+
+		_mgr = new ClientNodeMgr(_client);
+		_config = new UA_ClientConfig_Proxy(cc);
+	}
+
+	~UA_Client_Proxy() {
+		UA_Client_delete(_client);
+		delete _mgr;
 	}
 
 	UA_ClientState getState() {
 		return UA_Client_getState(_client);
-	}
-	UA_ClientConfig& getConfig() {
-		return *UA_Client_getConfig(_client);
 	}
 	void reset() {
 		UA_Client_reset(_client);
@@ -469,6 +508,14 @@ void reg_opcua_client(sol::table& module) {
 		"maxMessageSize", &UA_ConnectionConfig::maxMessageSize,
 		"maxChunkCount", &UA_ConnectionConfig::maxChunkCount
 	);
+	module.new_usertype<UA_ClientConfig_Proxy>("ClientConfig",
+		"new", sol::no_constructor, 
+		"setTimeout", &UA_ClientConfig_Proxy::setTimeout,
+		"setSecureChannelLifeTime", &UA_ClientConfig_Proxy::setSecureChannelLifeTime,
+		"setProductURI", &UA_ClientConfig_Proxy::setProductURI,
+		"setApplicationURI", &UA_ClientConfig_Proxy::setApplicationURI,
+		"setApplicationName", &UA_ClientConfig_Proxy::setApplicationName
+	);
 	module.new_usertype<UA_ApplicationDescription>("ApplicationDescription",
 		"applicationUri", &UA_ApplicationDescription::applicationUri,
 		"productUri", &UA_ApplicationDescription::productUri,
@@ -490,8 +537,9 @@ void reg_opcua_client(sol::table& module) {
 	);
 
 	module.new_usertype<UA_Client_Proxy>("Client",
+		sol::constructors<UA_Client_Proxy(), UA_Client_Proxy(UA_MessageSecurityMode, const std::string&, const std::string&)>(),
+		"config", &UA_Client_Proxy::_config,
 		"getState", &UA_Client_Proxy::getState,
-		"getConfig", &UA_Client_Proxy::getConfig,
 		"reset", &UA_Client_Proxy::reset,
 		"connect", &UA_Client_Proxy::connect,
 		"connect_username", &UA_Client_Proxy::connect_username,

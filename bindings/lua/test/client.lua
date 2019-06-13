@@ -9,6 +9,7 @@ opcua.setLogger(function(...)
 end)
 ]]--
 
+--[[
 local function connection_config_init(config)
 	config.protocolVersion = 0
 	config.sendBufferSize = 65535
@@ -16,13 +17,14 @@ local function connection_config_init(config)
 	config.maxMessageSize = 0
 	config.maxChunkCount = 0
 end
+]]--
 
 local client = opcua.Client.new()
 
-local config = client:getConfig()
-config.timeout = 5000
-config.secureChannelLifeTime = 10 * 60 * 1000
-connection_config_init(config.localConnectionConfig)
+local config = client.config
+config:setTimeout( 5000)
+config:setSecureChannelLifeTime( 10 * 60 * 1000 )
+--connection_config_init(config.localConnectionConfig)
 
 --local client = opcua.Client.new("opc.tcp://172.30.1.141:4840", 5000, 10 * 60 * 1000, config)
 --local client = opcua.Client.new("opc.tcp://127.0.0.1:4840", 5000, 10 * 60 * 1000, config)

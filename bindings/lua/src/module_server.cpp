@@ -2,6 +2,7 @@
 #include <list>
 
 #include "open62541.h"
+#include "read_file.h"
 
 #define SOL_CHECK_ARGUMENTS 1
 #include "sol/sol.hpp"
@@ -355,22 +356,23 @@ protected:
 	friend class UA_Server_Proxy;
 
 	UA_ServerConfig_Proxy(UA_ServerConfig *config) : _config(config) {
+		//printf("%lld\n", _config);
 	}
 public:
 	void setProductURI(const std::string& uri) {
 		/*
-		UA_String_deleteMembers(&_config->buildInfo.productUri);
+		UA_String_clear(&_config->buildInfo.productUri);
 		_config->buildInfo.productUri = UA_STRING_ALLOC((char*)uri.c_str())
 		*/
-		UA_String_deleteMembers(&_config->applicationDescription.productUri);
+		UA_String_clear(&_config->applicationDescription.productUri);
 		_config->applicationDescription.productUri = UA_STRING_ALLOC((char*)uri.c_str());
 	}
-	void setServerURI(const std::string& uri) {
-		UA_String_deleteMembers(&_config->applicationDescription.applicationUri);
+	void setApplicationURI(const std::string& uri) {
+		UA_String_clear(&_config->applicationDescription.applicationUri);
 		_config->applicationDescription.applicationUri = UA_STRING_ALLOC((char*)uri.c_str());
 	}
-	void setServerName(const std::string& locale, const std::string& name) {
-		UA_LocalizedText_deleteMembers(&_config->applicationDescription.applicationName);
+	void setApplicationName(const std::string& locale, const std::string& name) {
+		UA_LocalizedText_clear(&_config->applicationDescription.applicationName);
 		_config->applicationDescription.applicationName = UA_LOCALIZEDTEXT_ALLOC(locale.c_str(), name.c_str());
 	}
 };
@@ -380,41 +382,49 @@ protected:
 	UA_Server_Proxy(UA_Server_Proxy& prox);
 	UA_Server* _server;
 	ServerNodeMgr* _mgr;
-	UA_ServerConfig *_config;
 
 public:
+	UA_ServerConfig_Proxy *_config;
 	volatile bool _running = true;
-	UA_ServerConfig_Proxy *_config_proxy;
 
 public:
 	UA_Server_Proxy() {
-		_config = UA_ServerConfig_new_default();
-		_config_proxy = new UA_ServerConfig_Proxy(_config);
-
-		_server = UA_Server_new(_config);
-		_mgr = new ServerNodeMgr(_server);
+		_server = UA_Server_new();
+		UA_ServerConfig *cc = UA_Server_getConfig(_server);
+		UA_ServerConfig_setDefault(cc);
+		_config = new UA_ServerConfig_Proxy(cc);
 	}
 	UA_Server_Proxy(int port) {
-		_config = UA_ServerConfig_new_minimal(port, NULL);
-		_config_proxy = new UA_ServerConfig_Proxy(_config);
-
-		_server = UA_Server_new(_config);
-		_mgr = new ServerNodeMgr(_server);
+		_server = UA_Server_new();
+		UA_ServerConfig *cc = UA_Server_getConfig(_server);
+		UA_ServerConfig_setDefault(cc);
+		_config = new UA_ServerConfig_Proxy(cc);
 	}
-	UA_Server_Proxy(int port, const std::string cert) {
-		auto cert_s = UA_BYTESTRING_ALLOC(cert.c_str());
-		_config = UA_ServerConfig_new_minimal(port, &cert_s);
-		UA_ByteString_deleteMembers(&cert_s);
-		_config_proxy = new UA_ServerConfig_Proxy(_config);
+	UA_Server_Proxy(int port, const std::string cert, const std::string pkey) {
+		_server = UA_Server_new();
+		UA_ServerConfig *cc = UA_Server_getConfig(_server);
 
-		_server = UA_Server_new(_config);
+		if (cert.length() > 0) {
+			UA_ByteString certificate = loadFile(cert.c_str());
+			UA_ByteString privateKey  = loadFile(pkey.c_str());
+
+			UA_ByteString *trustList = NULL;
+			size_t trustListSize = 0;
+			UA_ByteString *revocationList = NULL;
+			size_t revocationListSize = 0;
+
+			UA_ServerConfig_setDefaultWithSecurityPolicies(cc, port, &certificate, &privateKey, trustList, trustListSize, revocationList, revocationListSize);
+
+			UA_ByteString_clear(&certificate);
+			UA_ByteString_clear(&privateKey);
+		}
+		_config = new UA_ServerConfig_Proxy(cc);
 		_mgr = new ServerNodeMgr(_server);
 	}
 	~UA_Server_Proxy() {
-		delete _config_proxy;
+		delete _config;
 		delete _mgr;
 		UA_Server_delete(_server);
-		UA_ServerConfig_delete(_config);
 
 		for (auto p : _callbacks) {
 			p->func = nullptr;
@@ -585,13 +595,13 @@ void reg_opcua_server(sol::table& module) {
 	module.new_usertype<UA_ServerConfig_Proxy>("ServerConfig",
 		"new", sol::no_constructor, 
 		"setProductURI", &UA_ServerConfig_Proxy::setProductURI,
-		"setServerURI", &UA_ServerConfig_Proxy::setServerURI,
-		"setServerName", &UA_ServerConfig_Proxy::setServerName
+		"setApplicationURI", &UA_ServerConfig_Proxy::setApplicationURI,
+		"setApplicationName", &UA_ServerConfig_Proxy::setApplicationName
 	);
 	module.new_usertype<UA_Server_Proxy>("Server",
-		sol::constructors<UA_Server_Proxy(), UA_Server_Proxy(int), UA_Server_Proxy(int, const std::string&)>(),
+		sol::constructors<UA_Server_Proxy(), UA_Server_Proxy(int), UA_Server_Proxy(int, const std::string&, const std::string&)>(),
 		"running", sol::readonly(&UA_Server_Proxy::_running),
-		"config", &UA_Server_Proxy::_config_proxy,
+		"config", &UA_Server_Proxy::_config,
 		"addCallback", &UA_Server_Proxy::addCallback,
 		"run", &UA_Server_Proxy::run,
 		"startup", &UA_Server_Proxy::startup,

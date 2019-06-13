@@ -11,13 +11,17 @@ end)
 
 local server = opcua.Server.new()
 local config = server.config
+print(config)
 --server:SetEndpoint("opc.tcp://127.0.0.1:4840/freeopcua/server/")
-config:setServerURI("urn:://exampleserver.freeopcua.github.io")
+config:setApplicationURI("urn:://exampleserver.freeopcua.github.io")
+
+print('xxxxxxxxxxxxxxxx')
 
 --print(pcall(server.GetNamespaceIndex, server, "http://examples.freeopcua.github.io"))
 --local idx = server:RegisterNamespace("http://examples.freeopcua.github.io")
 local idx = server:addNamespace("http://iot.symid.com")
 print(idx)
+local idx = server:addNamespace("http://freeioe.org")
 --print(server:GetNamespaceIndex("http://examples.freeopcua.github.io"))
 --print(idx)
 local objects = server:getObjectsNode()
@@ -82,7 +86,7 @@ end, 1000)
 
 server:startup()
 while true do
-	if counter > 100 then
+	if counter > 10000 then
 		break
 	end
 	server:run_once(false)

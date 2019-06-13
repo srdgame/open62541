@@ -16,6 +16,7 @@ config.maxMessageSize = 0
 config.maxChunkCount = 0
 
 local client = opcua.Client.new("opc.tcp://10.0.0.117:49320", 5000, 10 * 60 * 1000, config, "Basic128Rsa15", "certs/my_cert.der", "certs/my_private_key.der", "")
+client.config.clientDescription.applicationUri = "aaaa"
 --local client = opcua.Client.new("opc.tcp://10.0.0.117:49320", 5000, 10 * 60 * 1000, config, "", "certs/my_cert.der", "certs/my_private_key.der", "")
 --local client = opcua.Client.new("opc.tcp://127.0.0.1:4840", 5000, 10 * 60 * 1000, config, "Basic128Rsa15", "certs/my_cert.der", "certs/my_private_key.der", "")
 print(client)

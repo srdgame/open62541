@@ -14,7 +14,7 @@ std::string toString(const UA_NodeId& id) {
 	UA_String nodeIdStr = UA_STRING_NULL;
 	UA_NodeId_toString(&id, &nodeIdStr);
 	std::string str = std::string((const char*)nodeIdStr.data, nodeIdStr.length);
-	UA_String_deleteMembers(&nodeIdStr);
+	UA_String_clear(&nodeIdStr);
 	return str;
 }
 
@@ -110,7 +110,7 @@ void reg_opcua_types(sol::table& module) {
 				UA_Variant var;
 				UA_Variant_init(&var);
 				UA_Variant_setScalarCopy(&var, &str, &UA_TYPES[UA_TYPES_STRING]);
-				UA_String_deleteMembers(&str);
+				UA_String_clear(&str);
 				return var;
 			},
 			[](const UA_Variant& obj) {
@@ -135,7 +135,7 @@ void reg_opcua_types(sol::table& module) {
 		"uint64", sol::initializers([](UA_Variant& var, uint64_t val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_UINT64]);}),
 		"datetime", sol::initializers([](UA_Variant& var, UA_DateTime val) { UA_Variant_init(&var); UA_Variant_setScalarCopy(&var, &val, &UA_TYPES[UA_TYPES_DATETIME]);}),
 
-		"__gc", sol::destructor(UA_Variant_deleteMembers),
+		"__gc", sol::destructor(UA_Variant_clear),
 		"isEmpty", [](UA_Variant& var) { return UA_Variant_isEmpty(&var); },
 		"isScalar", [](UA_Variant& var) { return UA_Variant_isScalar(&var); },
 		"hasScalarType", [](UA_Variant& var, int type) { return UA_Variant_hasScalarType(&var, &UA_TYPES[type]); },
@@ -224,7 +224,7 @@ void reg_opcua_types(sol::table& module) {
 				return var;
 			}
 		),
-		"__gc", sol::destructor(UA_DataValue_deleteMembers),
+		"__gc", sol::destructor(UA_DataValue_clear),
 		"hasValue", sol::property([](UA_DataValue& obj) { return obj.hasValue; }),
 		"hasStatus", sol::property([](UA_DataValue& obj) { return obj.hasStatus; }),
 		"hasSourceTimestamp", sol::property([](UA_DataValue& obj) { return obj.hasSourceTimestamp; }),
@@ -254,7 +254,7 @@ void reg_opcua_types(sol::table& module) {
 			[](int ns, const char* val){ return UA_NODEID_STRING_ALLOC(ns, val); },
 			[](int ns, UA_Guid val){ UA_NODEID_GUID(ns, val); }
 		),
-		"__gc", sol::destructor(UA_NodeId_deleteMembers),
+		"__gc", sol::destructor(UA_NodeId_clear),
 		"__eq", [](const UA_NodeId& left, const UA_NodeId& right) { return UA_NodeId_equal(&left, &right); },
 		"isNull", [](const UA_NodeId& id) { return UA_NodeId_isNull(&id); },
 		"hash", [](const UA_NodeId& id) { return UA_NodeId_hash(&id); },
@@ -288,7 +288,7 @@ void reg_opcua_types(sol::table& module) {
 			[](int ns, const char* val) { return UA_EXPANDEDNODEID_STRING_ALLOC(ns, val); }
 		),
 		// TODO: for UUID, BYTESTRING
-		"__gc", sol::destructor(UA_ExpandedNodeId_deleteMembers),
+		"__gc", sol::destructor(UA_ExpandedNodeId_clear),
 		"__eq", [](const UA_ExpandedNodeId& left, const UA_ExpandedNodeId& right) {
 			return UA_ExpandedNodeId_equal(&left, &right);
 		},
@@ -301,7 +301,7 @@ void reg_opcua_types(sol::table& module) {
 
 	module.new_usertype<UA_QualifiedName>("QualifiedName",
 		"new", sol::factories([](int ns, const char* val) { return UA_QUALIFIEDNAME_ALLOC(ns, val); }),
-		"__gc", sol::destructor(UA_QualifiedName_deleteMembers),
+		"__gc", sol::destructor(UA_QualifiedName_clear),
 		"__eq", [](const UA_QualifiedName& left, const UA_QualifiedName& right) {
 			return UA_QualifiedName_equal(&left, &right);
 			//return left.namespaceIndex == right.namespaceIndex & UA_String_equal(&left.name, &right.name);
@@ -318,7 +318,7 @@ void reg_opcua_types(sol::table& module) {
 
 	module.new_usertype<UA_LocalizedText>("LocalizedText",
 		"new", sol::factories([](const char* locale, const char* text) { return UA_LOCALIZEDTEXT_ALLOC(locale, text); }),
-		"__gc", sol::destructor(UA_LocalizedText_deleteMembers),
+		"__gc", sol::destructor(UA_LocalizedText_clear),
 		"__tostring", [](const UA_LocalizedText& obj) {
 			std::stringstream ss;
 			ss << "LocalizedText(locale=" << std::string((char*)obj.locale.data, obj.locale.length);
@@ -333,7 +333,7 @@ void reg_opcua_types(sol::table& module) {
 		"new", sol::factories([]() { 
 			return UA_ObjectAttributes_default;
 		}),
-		"__gc", sol::destructor(UA_ObjectAttributes_deleteMembers),
+		"__gc", sol::destructor(UA_ObjectAttributes_clear),
 		"specifiedAttributes", &UA_ObjectAttributes::specifiedAttributes,
 		MAP_PROPERTY(UA_ObjectAttributes, UA_LocalizedText, displayName),
 		MAP_PROPERTY(UA_ObjectAttributes, UA_LocalizedText, description),
@@ -346,7 +346,7 @@ void reg_opcua_types(sol::table& module) {
 		"new", sol::factories([]() { 
 			return UA_VariableAttributes_default;
 		}),
-		"__gc", sol::destructor(UA_VariableAttributes_deleteMembers),
+		"__gc", sol::destructor(UA_VariableAttributes_clear),
 		"specifiedAttributes", &UA_VariableAttributes::specifiedAttributes,
 		MAP_PROPERTY(UA_VariableAttributes, UA_LocalizedText, displayName),
 		MAP_PROPERTY(UA_VariableAttributes, UA_LocalizedText, description),
@@ -366,7 +366,7 @@ void reg_opcua_types(sol::table& module) {
 		"new", sol::factories([]() { 
 			return UA_ViewAttributes_default;
 		}),
-		"__gc", sol::destructor(UA_ViewAttributes_deleteMembers),
+		"__gc", sol::destructor(UA_ViewAttributes_clear),
 		"specifiedAttributes", &UA_ViewAttributes::specifiedAttributes,
 		MAP_PROPERTY(UA_ViewAttributes, UA_LocalizedText, displayName),
 		MAP_PROPERTY(UA_ViewAttributes, UA_LocalizedText, description),
@@ -380,7 +380,7 @@ void reg_opcua_types(sol::table& module) {
 		"new", sol::factories([]() { 
 			return UA_MethodAttributes_default;
 		}),
-		"__gc", sol::destructor(UA_MethodAttributes_deleteMembers),
+		"__gc", sol::destructor(UA_MethodAttributes_clear),
 		"specifiedAttributes", &UA_MethodAttributes::specifiedAttributes,
 		MAP_PROPERTY(UA_MethodAttributes, UA_LocalizedText, displayName),
 		MAP_PROPERTY(UA_MethodAttributes, UA_LocalizedText, description),
