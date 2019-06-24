@@ -517,6 +517,7 @@ void reg_opcua_client(sol::table& module) {
 		"setApplicationURI", &UA_ClientConfig_Proxy::setApplicationURI,
 		"setApplicationName", &UA_ClientConfig_Proxy::setApplicationName
 	);
+	/*
 	module.new_usertype<UA_ApplicationDescription>("ApplicationDescription",
 		"applicationUri", &UA_ApplicationDescription::applicationUri,
 		"productUri", &UA_ApplicationDescription::productUri,
@@ -527,6 +528,7 @@ void reg_opcua_client(sol::table& module) {
 		"discoveryUrlsSize", &UA_ApplicationDescription::discoveryUrlsSize,
 		"discoveryUrls", &UA_ApplicationDescription::discoveryUrls
 	);
+	*/
 	module.new_usertype<UA_ClientConfig>("ClientConfig",
 		"timeout", &UA_ClientConfig::timeout,
 		"clientDescription", &UA_ClientConfig::clientDescription,

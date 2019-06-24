@@ -10,6 +10,7 @@ loadFile(const char *const path) {
     /* Open the file */
     FILE *fp = fopen(path, "rb");
     if(!fp) {
+		fprintf(stderr, "Failed to load file (%d): %s\n", errno, path);
         errno = 0; /* We read errno also from the tcp layer... */
         return fileContents;
     }
