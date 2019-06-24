@@ -398,6 +398,7 @@ public:
 
 		_client = UA_Client_new();
 		UA_ClientConfig *cc = UA_Client_getConfig(_client);
+		cc->securityMode = securityMode;
 		UA_StatusCode rc = UA_ClientConfig_setDefaultEncryption(cc, certificate, privateKey,
 				trustList, trustListSize,
 				revocationList, revocationListSize);
