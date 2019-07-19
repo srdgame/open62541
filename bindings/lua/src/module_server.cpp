@@ -412,10 +412,12 @@ public:
 
 			UA_ByteString *trustList = NULL;
 			size_t trustListSize = 0;
+			UA_ByteString *issuerList = NULL;
+			size_t issuerListSize = 0;
 			UA_ByteString *revocationList = NULL;
 			size_t revocationListSize = 0;
 
-			UA_ServerConfig_setDefaultWithSecurityPolicies(cc, port, &certificate, &privateKey, trustList, trustListSize, revocationList, revocationListSize);
+			UA_ServerConfig_setDefaultWithSecurityPolicies(cc, port, &certificate, &privateKey, trustList, trustListSize, issuerList, issuerListSize, revocationList, revocationListSize);
 
 			UA_ByteString_clear(&certificate);
 			UA_ByteString_clear(&privateKey);

@@ -63,8 +63,12 @@ attr.userWriteMask = opcua.WriteMask.ALL
 ]]
 attr.accessLevel = opcua.AccessLevel.RW
 --attr.userAccessLevel = opcua.AccessLevel.READ ~ opcua.AccessLevel.READ
-local myprop = newobject:addVariable(opcua.NodeId.new(idx, 97), "MyProperty", attr)
-myprop.displayName = opcua.LocalizedText.new("en_US", "AAAAAAAAAAAAA")
+
+for i = 110, 500 do
+	local myprop, err = newobject:addVariable(opcua.NodeId.new(idx, i), "MyProperty"..i, attr)
+	assert(myprop, err)
+	myprop.displayName = opcua.LocalizedText.new("en_US", "AAAAAAAAAAAAA"..i)
+end
 
 local root = server:getRootNode()
 print("Root node is", root)
