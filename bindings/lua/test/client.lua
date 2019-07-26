@@ -31,8 +31,8 @@ config:setSecureChannelLifeTime( 10 * 60 * 1000 )
 --local client = opcua.Client.new("opc.tcp://172.30.11.121:4840", 5000, 10 * 60 * 1000, config)
 
 --local r, err = client:connect_username("opc.tcp://127.0.0.1:4840", "user1", "password")
---local r, err = client:connect("opc.tcp://127.0.0.1:4840")
-local r, err = client:connect("opc.tcp://172.30.11.232:4840")
+local r, err = client:connect("opc.tcp://127.0.0.1:4840")
+--local r, err = client:connect("opc.tcp://172.30.11.232:4840")
 print(r, err)
 print("StatusCodeName", opcua.getStatusCodeName(r))
 

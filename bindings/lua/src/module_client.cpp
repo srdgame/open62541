@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 
 #include "open62541.h"
 #include "read_file.h"
@@ -320,7 +321,6 @@ static void cleanupClient(UA_Client* client, UA_ByteString* remoteCertificate) {
     UA_Client_delete(client); /* Disconnects the client internally */
 }
 
-
 class UA_ClientConfig_Proxy {
 	UA_ClientConfig *_config;
 protected:
@@ -353,17 +353,59 @@ public:
 	}
 };
 
-
 class UA_Client_Proxy {
 protected:
 	UA_Client_Proxy(UA_Client_Proxy& prox);
 	UA_Client* _client;
 	ClientNodeMgr* _mgr;
 
+	typedef std::function<void(UA_UInt32 monId, UA_DataValue *value, void *monContext)> SubscribeCallback;
+	std::map<UA_UInt32, SubscribeCallback> _subCallbackMap;
+	typedef std::function<void(UA_Client_Proxy* client, UA_ClientState state)> StateCallback;
+	StateCallback _stateCallback;
+
+	static void
+		handler_MonitoredItemChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
+				UA_UInt32 monId, void *monContext, UA_DataValue *value) {
+			UA_Client_Proxy* pClient = (UA_Client_Proxy*)subContext;
+			pClient->handleMonitoredItemChange(client, subId, monId, monContext, value);
+		}
+
+	static void
+		handler_MonitoredItemDeleted(UA_Client *client, UA_UInt32 subId, void *subContext,
+				UA_UInt32 monId, void *monContext) {
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Monitored item %u was deleted, sub_id %u", monId, subId);
+		}
+
+	static void
+		clientStateChangeCallback(UA_Client* client, UA_ClientState clientState) {
+			UA_ClientConfig* cc = UA_Client_getConfig(client);
+			UA_Client_Proxy* pClient = (UA_Client_Proxy*)cc->clientContext;
+			if (pClient->_stateCallback) {
+				pClient->_stateCallback(pClient, clientState);
+			}
+		}
+
+	static void
+		subscriptionInactivityCallback (UA_Client *client, UA_UInt32 subId, void *subContext) {
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Inactivity for subscription %u", subId);
+		}
+
+	static void
+		statusChangeSubscriptionCallback(UA_Client *client, UA_UInt32 subId, void *subContext,
+				UA_StatusChangeNotification *notification) {
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u status was changed", subId);
+		}
+
+	static void
+		deleteSubscriptionCallback(UA_Client *client, UA_UInt32 subscriptionId, void *subscriptionContext) {
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
+		}
 public:
 	UA_ClientConfig_Proxy *_config;
 
 	UA_Client_Proxy() {
+		_stateCallback = nullptr;
 		_client = UA_Client_new();
 		if (!_client) {
 			printf("Initialized UA_Client failure!!!");
@@ -371,11 +413,17 @@ public:
 		}
 		UA_ClientConfig* cc = UA_Client_getConfig(_client);
 		UA_ClientConfig_setDefault(cc);
+
+		cc->clientContext = this;
+		cc->stateCallback = &UA_Client_Proxy::clientStateChangeCallback;
+		cc->subscriptionInactivityCallback = &UA_Client_Proxy::subscriptionInactivityCallback;
+
 		_mgr = new ClientNodeMgr(_client);
 		_config = new UA_ClientConfig_Proxy(cc);
 	}
 
 	UA_Client_Proxy(UA_MessageSecurityMode securityMode, const std::string& priCert, const std::string& priKey) {
+		_stateCallback = nullptr;
 		/* Load certificate and private key */
 		UA_ByteString certificate = loadFile(priCert.c_str());
 		UA_ByteString privateKey  = loadFile(priKey.c_str());
@@ -415,6 +463,10 @@ public:
 		/* Secure client connect */
 		cc->securityMode = securityMode; /* require encryption */
 
+		cc->clientContext = this;
+		cc->stateCallback = &UA_Client_Proxy::clientStateChangeCallback;
+		cc->subscriptionInactivityCallback = &UA_Client_Proxy::subscriptionInactivityCallback;
+
 		_mgr = new ClientNodeMgr(_client);
 		_config = new UA_ClientConfig_Proxy(cc);
 	}
@@ -422,6 +474,10 @@ public:
 	~UA_Client_Proxy() {
 		UA_Client_delete(_client);
 		delete _mgr;
+	}
+
+	void setStateCallback(StateCallback callback) {
+		_stateCallback = callback;
 	}
 
 	UA_ClientState getState() {
@@ -499,7 +555,56 @@ public:
 	UA_StatusCode deleteNode(const UA_Node& node, bool deleteReferences) {
 		return deleteNode(node._id, deleteReferences);
 	}
+
+	sol::variadic_results createSubscription(SubscribeCallback callback, sol::this_state L) {
+		UA_StatusCode re = -1;
+		if (!this->_client) {
+			RETURN_RESULT(UA_UInt32, -1);
+		}
+		/* A new session was created. We need to create the subscription. */
+		/* Create a subscription */
+		UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+		UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(this->_client, request,
+				this, statusChangeSubscriptionCallback, deleteSubscriptionCallback);
+
+		re = response.responseHeader.serviceResult;
+		if ( re == UA_STATUSCODE_GOOD) {
+			_subCallbackMap[response.subscriptionId] = callback;
+		}
+		RETURN_RESULT(UA_UInt32, response.subscriptionId);
+	}
+	void handleMonitoredItemChange(UA_Client *client, UA_UInt32 subId, UA_UInt32 monId, void *monContext, UA_DataValue *value) {
+		if (_client != client) {
+			return;
+		}
+		auto ptr = _subCallbackMap.find(subId);
+		if (ptr != _subCallbackMap.end()) {
+			(ptr->second)(monId, value, monContext);
+		} else {
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Cannot find %u was deleted", subId);
+		}
+	}
+
+	sol::variadic_results subscribeNode(UA_UInt32 sub_id, const UA_NodeId& nodeId, void* context, sol::this_state L) {
+		/* Add a MonitoredItem */
+		UA_MonitoredItemCreateRequest monRequest =
+			UA_MonitoredItemCreateRequest_default(nodeId);
+
+		UA_MonitoredItemCreateResult monResponse =
+			UA_Client_MonitoredItems_createDataChange(this->_client, sub_id,
+					UA_TIMESTAMPSTORETURN_BOTH, monRequest, context,
+					handler_MonitoredItemChanged, handler_MonitoredItemDeleted);
+
+		UA_StatusCode re = monResponse.statusCode;
+		RETURN_RESULT(UA_UInt32, monResponse.monitoredItemId)
+	}
+
+	UA_UInt16 run_iterate(UA_UInt32 waitInternal) {
+		return UA_Client_run_iterate(this->_client, waitInternal);
+	}
+	
 };
+
 
 void reg_opcua_client(sol::table& module) {
 	module.new_usertype<UA_ConnectionConfig>("ConnectionConfig",
@@ -542,6 +647,7 @@ void reg_opcua_client(sol::table& module) {
 	module.new_usertype<UA_Client_Proxy>("Client",
 		sol::constructors<UA_Client_Proxy(), UA_Client_Proxy(UA_MessageSecurityMode, const std::string&, const std::string&)>(),
 		"config", &UA_Client_Proxy::_config,
+		"setStateCallback", &UA_Client_Proxy::setStateCallback,
 		"getState", &UA_Client_Proxy::getState,
 		"reset", &UA_Client_Proxy::reset,
 		"connect", &UA_Client_Proxy::connect,
@@ -565,7 +671,10 @@ void reg_opcua_client(sol::table& module) {
 		"deleteNode", sol::overload(
 			static_cast<UA_StatusCode (UA_Client_Proxy::*)(const UA_NodeId&, bool) >(&UA_Client_Proxy::deleteNode),
 			static_cast<UA_StatusCode (UA_Client_Proxy::*)(const UA_Node&, bool) >(&UA_Client_Proxy::deleteNode)
-		)
+		),
+		"createSubscription", &UA_Client_Proxy::createSubscription,
+		"subscribeNode", &UA_Client_Proxy::subscribeNode,
+		"run_iterate", &UA_Client_Proxy::run_iterate
 	);
 
 	module.new_usertype<ClientNodeMgr>("ClientNodeMgr",
