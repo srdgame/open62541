@@ -585,14 +585,14 @@ public:
 		}
 	}
 
-	sol::variadic_results subscribeNode(UA_UInt32 sub_id, const UA_NodeId& nodeId, void* context, sol::this_state L) {
+	sol::variadic_results subscribeNode(UA_UInt32 sub_id, const UA_NodeId& nodeId, sol::this_state L) {
 		/* Add a MonitoredItem */
 		UA_MonitoredItemCreateRequest monRequest =
 			UA_MonitoredItemCreateRequest_default(nodeId);
 
 		UA_MonitoredItemCreateResult monResponse =
 			UA_Client_MonitoredItems_createDataChange(this->_client, sub_id,
-					UA_TIMESTAMPSTORETURN_BOTH, monRequest, context,
+					UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL,
 					handler_MonitoredItemChanged, handler_MonitoredItemDeleted);
 
 		UA_StatusCode re = monResponse.statusCode;

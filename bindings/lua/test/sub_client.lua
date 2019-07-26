@@ -43,7 +43,7 @@ if not sub_id then
 	print("Error Sub", err)
 end
 
-local mon_id, err = client:subscribeNode(sub_id, id, node)
+local mon_id, err = client:subscribeNode(sub_id, id)
 if not mon_id then
 	print("Monitor failed", err)
 end
