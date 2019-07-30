@@ -1,5 +1,6 @@
 #include <iostream>
 #include <map>
+#include <list>
 
 #include "open62541.h"
 #include "read_file.h"
@@ -359,10 +360,29 @@ protected:
 	UA_Client* _client;
 	ClientNodeMgr* _mgr;
 
-	typedef std::function<void(UA_UInt32 monId, UA_DataValue *value, void *monContext)> SubscribeCallback;
+	typedef std::function<void(UA_UInt32 monId, UA_DataValue value, UA_UInt32 subId, void *monContext)> SubscribeCallback;
 	std::map<UA_UInt32, SubscribeCallback> _subCallbackMap;
+
+	/*
+	struct SubscribeCallbackItem {
+		UA_UInt32 sub_id;
+		UA_UInt32 mon_id;
+		UA_DataValue value;
+		void* context;
+		SubscribeCallbackItem(UA_UInt32 sub_id, UA_UInt32 mon_id, UA_DataValue* value) 
+			: sub_id(sub_id),
+			mon_id(mon_id)
+		{
+			UA_DataValue_copy(value, &this->value);
+		}
+	};
+	std::list<SubscribeCallbackItem*> _subCallbackItems;
+	*/
+
 	typedef std::function<void(UA_Client_Proxy* client, UA_ClientState state)> StateCallback;
 	StateCallback _stateCallback;
+	//UA_ClientState _stateCallbackNew;
+	
 
 	static void
 		handler_MonitoredItemChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
@@ -382,6 +402,7 @@ protected:
 			UA_ClientConfig* cc = UA_Client_getConfig(client);
 			UA_Client_Proxy* pClient = (UA_Client_Proxy*)cc->clientContext;
 			if (pClient->_stateCallback) {
+				//pClient->_stateCallbackNew = clientState;
 				pClient->_stateCallback(pClient, clientState);
 			}
 		}
@@ -406,6 +427,7 @@ public:
 
 	UA_Client_Proxy() {
 		_stateCallback = nullptr;
+		//_stateCallbackNew = (UA_ClientState)-1;
 		_client = UA_Client_new();
 		if (!_client) {
 			printf("Initialized UA_Client failure!!!");
@@ -424,6 +446,7 @@ public:
 
 	UA_Client_Proxy(UA_MessageSecurityMode securityMode, const std::string& priCert, const std::string& priKey) {
 		_stateCallback = nullptr;
+		//_stateCallbackNew = (UA_ClientState)-1;
 		/* Load certificate and private key */
 		UA_ByteString certificate = loadFile(priCert.c_str());
 		UA_ByteString privateKey  = loadFile(priKey.c_str());
@@ -577,9 +600,16 @@ public:
 		if (_client != client) {
 			return;
 		}
+		/*
+		SubscribeCallbackItem* item = new SubscribeCallbackItem(subId, monId, value);
+		_subCallbackItems.push_back(item);
+		*/
+
+		UA_DataValue val;
+		UA_DataValue_copy(value, &val);
 		auto ptr = _subCallbackMap.find(subId);
 		if (ptr != _subCallbackMap.end()) {
-			(ptr->second)(monId, value, monContext);
+			(ptr->second)(monId, val, subId, monContext);
 		} else {
 			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Cannot find %u was deleted", subId);
 		}
@@ -600,6 +630,38 @@ public:
 	}
 
 	UA_UInt16 run_iterate(UA_UInt32 waitInternal) {
+		/*
+		UA_UInt32 last = 0;
+		UA_StatusCode re;
+		do {
+			re = UA_Client_run_iterate(this->_client, 20);
+			if (_subCallbackItems.size() > 0) {
+				auto ptr = _subCallbackItems.begin();
+				for (; ptr != _subCallbackItems.end(); ++ptr) {
+					SubscribeCallbackItem& item = **ptr;
+
+					auto mptr = _subCallbackMap.find(item.sub_id);
+					if (mptr != _subCallbackMap.end()) {
+						UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Trigger calback", item.sub_id);
+						(mptr->second)(item.mon_id, &item.value, item.sub_id, item.context);
+						break;
+					} else {
+						UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Cannot find %u callback", item.sub_id);
+					}
+
+					delete *ptr;
+				}
+				_subCallbackItems.clear();
+			}
+			if (_stateCallbackNew != -1 && _stateCallback) {
+				_stateCallback(this, _stateCallbackNew);
+				_stateCallbackNew = (UA_ClientState)-1;
+			}
+
+		} while ( ( (last + 20) < waitInternal) && re == UA_STATUSCODE_GOOD);
+
+		return re;
+		*/
 		return UA_Client_run_iterate(this->_client, waitInternal);
 	}
 	

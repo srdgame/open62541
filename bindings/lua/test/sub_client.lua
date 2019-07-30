@@ -16,7 +16,8 @@ end
 
 client:setStateCallback(state_callback)
 
-local r, err = client:connect("opc.tcp://127.0.0.1:4840")
+--local r, err = client:connect("opc.tcp://127.0.0.1:4840")
+local r, err = client:connect("opc.tcp://172.30.0.187:38133")
 print(r, err)
 print("StatusCodeName", opcua.getStatusCodeName(r))
 
@@ -35,8 +36,8 @@ while node do
 end
 ]]--
 
-local sub_id, err = client:createSubscription(function(mon_id, data_value, data_ptr)
-	print(mon_id, data_value.value:asDateTime())
+local sub_id, err = client:createSubscription(function(mon_id, data_value, sub_id)
+	print(mon_id, data_value.value:asDateTime(), sub_id)
 end)
 
 if not sub_id then
