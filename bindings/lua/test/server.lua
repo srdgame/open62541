@@ -89,6 +89,7 @@ server:addCallback(function()
 end, 1000)
 
 
+--[[
 server:startup()
 while true do
 	if counter > 10000 then
@@ -102,9 +103,8 @@ while true do
 end
 
 server:shutdown()
+]]--
 
---[[
 server:run()
 print('run finished')
 print(server.running)
-]]--

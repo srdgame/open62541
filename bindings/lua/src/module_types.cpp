@@ -138,6 +138,7 @@ void reg_opcua_types(sol::table& module) {
 		"__gc", sol::destructor(UA_Variant_clear),
 		"isEmpty", [](UA_Variant& var) { return UA_Variant_isEmpty(&var); },
 		"isScalar", [](UA_Variant& var) { return UA_Variant_isScalar(&var); },
+		"isNumeric", [](UA_Variant& var) { return UA_DataType_isNumeric(var.type); },
 		"hasScalarType", [](UA_Variant& var, int type) { return UA_Variant_hasScalarType(&var, &UA_TYPES[type]); },
 		"hasArrayType", [](UA_Variant& var, int type) { return UA_Variant_hasArrayType(&var, &UA_TYPES[type]); },
 		"setScalar", [](UA_Variant& var, void* p, int type) { return UA_Variant_setScalar(&var, p, &UA_TYPES[type]); },
@@ -147,10 +148,10 @@ void reg_opcua_types(sol::table& module) {
 		"copyRange", [](UA_Variant& var, const UA_Variant& src, const UA_NumericRange range) { return UA_Variant_copyRange(&src, &var, range); },
 		"setRange", [](UA_Variant& var, void* array, size_t arraySize, const UA_NumericRange range) { return UA_Variant_setRange(&var, array, arraySize, range); },
 		"setRangeCopy", [](UA_Variant& var, void* array, size_t arraySize, const UA_NumericRange range) { return UA_Variant_setRangeCopy(&var, array, arraySize, range); },
-		"asLong", [](const UA_Variant& var) {
+		"asLong", [](const UA_Variant& var, sol::this_state L) {
 			std::int64_t val = 0;
 			if (!UA_Variant_isScalar(&var))
-				return val;
+				RETURN_ERROR("not scalar type")
 			if (var.type == &UA_TYPES[UA_TYPES_BOOLEAN])
 				val = *(UA_Boolean*)var.data ? 1 : 0;
 			else if (var.type == &UA_TYPES[UA_TYPES_SBYTE])
@@ -169,12 +170,14 @@ void reg_opcua_types(sol::table& module) {
 				val = *(UA_Float*)var.data;
 			else if (var.type == &UA_TYPES[UA_TYPES_DOUBLE])
 				val = *(UA_Double*)var.data;
-			return val;
+			else
+				RETURN_ERROR("not buildin numeric type")
+			RETURN_OK(std::int64_t, val)
 		},
-		"asDouble", [](const UA_Variant& var) {
+		"asDouble", [](const UA_Variant& var, sol::this_state L) {
 			double val = 0;
 			if (!UA_Variant_isScalar(&var))
-				return val;
+				RETURN_ERROR("not scalar type")
 			if (var.type == &UA_TYPES[UA_TYPES_BOOLEAN])
 				val = *(UA_Boolean*)var.data ? 1 : 0;
 			else if (var.type == &UA_TYPES[UA_TYPES_SBYTE])
@@ -193,23 +196,28 @@ void reg_opcua_types(sol::table& module) {
 				val = *(UA_Float*)var.data;
 			else if (var.type == &UA_TYPES[UA_TYPES_DOUBLE])
 				val = *(UA_Double*)var.data;
-			return val;
+			else
+				RETURN_ERROR("not buildin numeric type")
+			RETURN_OK(double, val)
 		},
-		"asString", [](const UA_Variant& var) {
+		"asString", [](const UA_Variant& var, sol::this_state L) {
 			if (!UA_Variant_isScalar(&var))
-				return std::string("Not Scalar Value");
+				RETURN_ERROR("not scalar type")
 			if (var.type == &UA_TYPES[UA_TYPES_STRING]) {
 				UA_String str = *(UA_String*)var.data;
-				return std::string((const char*)str.data, str.length);
+				RETURN_OK(std::string, std::string((const char*)str.data, str.length))
+			} else {
+				RETURN_ERROR("not string type")
 			}
-			return std::string("Not String Type Value");
 		},
-		"asDateTime", [](const UA_Variant& var) {
-			UA_DateTime dt = 0L;
+		"asDateTime", [](const UA_Variant& var, sol::this_state L) {
 			if (var.type == &UA_TYPES[UA_TYPES_DATETIME] ) {
+				UA_DateTime dt = 0L;
 				dt = *(UA_DateTime*)var.data;
+				RETURN_OK(UA_DateTime, dt)
+			} else {
+				RETURN_ERROR("not string type")
 			}
-			return dt;
 		}
 	);
 
