@@ -218,6 +218,37 @@ void reg_opcua_types(sol::table& module) {
 			} else {
 				RETURN_ERROR("not string type")
 			}
+		},
+		"asValue", [](const UA_Variant& var, sol::this_state L) {
+			if (var.type == &UA_TYPES[UA_TYPES_BOOLEAN] ) {
+				RETURN_OK(UA_Boolean, *(UA_Boolean*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
+				RETURN_OK(UA_Boolean, *(UA_Boolean*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_SBYTE]) {
+				RETURN_OK(UA_SByte, *(UA_SByte*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_BYTE]) {
+				RETURN_OK(UA_Byte, *(UA_Byte*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_INT32]) {
+				RETURN_OK(UA_Int32, *(UA_Int32*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_INT32]) {
+				RETURN_OK(UA_UInt32, *(UA_UInt32*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_INT64]) {
+				RETURN_OK(UA_Int64, *(UA_Int64*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_UINT64]) {
+				RETURN_OK(UA_UInt64, *(UA_UInt64*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_FLOAT]) {
+				RETURN_OK(UA_Float, *(UA_Float*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+				RETURN_OK(UA_Double, *(UA_Double*)var.data);
+			} else if (var.type == &UA_TYPES[UA_TYPES_STRING]) {
+				UA_String str = *(UA_String*)var.data;
+				RETURN_OK(std::string, std::string((const char*)str.data, str.length))
+			}  else if (var.type == &UA_TYPES[UA_TYPES_DATETIME] ) {
+				UA_DateTime dt = 0L;
+				dt = *(UA_DateTime*)var.data;
+				RETURN_OK(UA_DateTime, dt)
+			}
+			RETURN_ERROR("not supported data type")
 		}
 	);
 
