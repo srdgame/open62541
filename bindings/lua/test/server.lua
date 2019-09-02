@@ -50,6 +50,7 @@ local vc = opcua.ValueCallback:new(function(server, sessionId, sessionContext, n
 	print('ONREAD', nodeId.ns, nodeId.index)
 	print(numericRange)
 	print(dataValue.value:asValue(), dataValue.sourceTimestamp, dataValue.serverTimestamp)
+	dataValue.value = opcua.Variant.new('ddddxxxxx')
 end,
 function(server, sessionId, sessionContext, nodeId, numericRange, dataValue)
 	print('ONWRITE', nodeId.ns, nodeId.index)
