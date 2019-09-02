@@ -61,6 +61,44 @@ struct UA_DataSource_Proxy {
 	}
 };
 
+class UA_Server_Proxy;
+
+struct UA_ValueCallback_Proxy {
+	UA_ValueCallback _callback;
+	typedef std::function<UA_StatusCode (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
+										void *sesssionContext, const UA_NodeId* nodeId,
+										const UA_NumericRange *range,
+										const UA_DataValue* value) > OnReadCallback;
+
+	typedef std::function<UA_StatusCode (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
+										void *sesssionContext, const UA_NodeId* nodeId,
+										const UA_NumericRange *range,
+										const UA_DataValue* data) > OnWriteCallback;
+	OnReadCallback _read;
+	OnWriteCallback _write;
+	UA_Server_Proxy* _proxy;
+
+	static void ReadCallback(UA_Server *server, const UA_NodeId *sessionId,
+                   void *sessionContext, const UA_NodeId *nodeId,
+                   void *nodeContext, const UA_NumericRange *range,
+                   const UA_DataValue *value);
+
+	static void WriteCallback(UA_Server *server, const UA_NodeId *sessionId,
+                    void *sessionContext, const UA_NodeId *nodeId,
+                    void *nodeContext, const UA_NumericRange *range,
+                    const UA_DataValue *data);
+
+	UA_ValueCallback_Proxy(OnReadCallback onRead, OnWriteCallback onWrite) : _read(onRead), _write(onWrite), _proxy(nullptr) {
+		_callback.onRead = &UA_ValueCallback_Proxy::ReadCallback;
+		_callback.onWrite = &UA_ValueCallback_Proxy::WriteCallback;
+	}
+	~UA_ValueCallback_Proxy() {
+		_read = nullptr;
+		_write = nullptr;
+		_proxy = nullptr;
+	}
+};
+
 class ServerAttributeReader : public AttributeReader {
 	UA_Server* _server;
 public:
@@ -379,6 +417,7 @@ public:
 
 class UA_Server_Proxy {
 protected:
+	friend class UA_ValueCallback_Proxy;
 	UA_Server_Proxy(UA_Server_Proxy& prox);
 	UA_Server* _server;
 	ServerNodeMgr* _mgr;
@@ -552,6 +591,16 @@ public:
 		return deleteNode(node._id, deleteReferences);
 	}
 
+	UA_StatusCode setVariableNode_valueCallback(const UA_NodeId nodeId,
+			UA_ValueCallback_Proxy* callback) {
+		callback->_proxy = this; // Set the callback
+		UA_StatusCode re = UA_Server_setNodeContext(_server, nodeId, callback);
+		if (re == UA_STATUSCODE_GOOD) {
+			return UA_Server_setVariableNode_valueCallback(_server, nodeId, callback->_callback);
+		}
+		return re;
+	}
+
 	// TODO:
 	typedef std::function<UA_StatusCode (UA_Server_Proxy& proxy, const UA_NodeId *sessionId,
                      void *sessionContext, const UA_NodeId *methodId,
@@ -595,7 +644,38 @@ public:
 	}
 };
 
+void UA_ValueCallback_Proxy::ReadCallback(UA_Server *server, const UA_NodeId *sessionId,
+			   void *sessionContext, const UA_NodeId *nodeId,
+			   void *nodeContext, const UA_NumericRange *range,
+			   const UA_DataValue *value) {
+	UA_ValueCallback_Proxy* p = (UA_ValueCallback_Proxy*)nodeContext;
+	if (p->_proxy->_server != server) {
+		// Code error here
+		return;
+	}
+	if (p->_read) {
+		p->_read(p->_proxy, sessionId, sessionContext, nodeId, range, value);
+	}
+}
+
+void UA_ValueCallback_Proxy::WriteCallback(UA_Server *server, const UA_NodeId *sessionId,
+				void *sessionContext, const UA_NodeId *nodeId,
+				void *nodeContext, const UA_NumericRange *range,
+				const UA_DataValue *data) {
+	UA_ValueCallback_Proxy* p = (UA_ValueCallback_Proxy*)nodeContext;
+	if (p->_proxy->_server != server) {
+		// Code error here
+		return;
+	}
+	if (p->_write) {
+		p->_write(p->_proxy, sessionId, sessionContext, nodeId, range, data);
+	}
+}
+
 void reg_opcua_server(sol::table& module) {
+	module.new_usertype<UA_ValueCallback_Proxy>("ValueCallback",
+		sol::constructors<UA_ValueCallback_Proxy(UA_ValueCallback_Proxy::OnReadCallback, UA_ValueCallback_Proxy::OnWriteCallback)>()
+	);
 	module.new_usertype<UA_ServerConfig_Proxy>("ServerConfig",
 		"new", sol::no_constructor, 
 		"setProductURI", &UA_ServerConfig_Proxy::setProductURI,
@@ -628,6 +708,7 @@ void reg_opcua_server(sol::table& module) {
 			static_cast<UA_StatusCode (UA_Server_Proxy::*)(const UA_NodeId&, bool) >(&UA_Server_Proxy::deleteNode),
 			static_cast<UA_StatusCode (UA_Server_Proxy::*)(const UA_Node&, bool) >(&UA_Server_Proxy::deleteNode)
 		),
+		"setVariableNode_valueCallback", &UA_Server_Proxy::setVariableNode_valueCallback,
 		"setMethodCallback", &UA_Server_Proxy::setMethodCallback
 	);
 
