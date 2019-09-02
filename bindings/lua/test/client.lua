@@ -101,18 +101,19 @@ if var then
 	print("getChild", var, err)
 	print("Var user write mask", var.userWriteMask, "Var user accessl Level", var.userAccessLevel)
 	local dv = var.dataValue
-	print('Value of MyVariable', dv.value)
+	print('Value of MyVariable', dv.value:asValue())
 	print('Source Timestamp of MyVariable', dv.sourceTimestamp)
 	print('Server Timestamp of MyVariable', dv.serverTimestamp)
 	--var.dataValue = opcua.DataValue.new(opcua.Variant.new('ddddddddddddd'))
 	local dv = opcua.DataValue.new(opcua.Variant.new('ddddddddddddd2'))
 	dv.sourceTimestamp = opcua.DateTime.fromUnixTime(os.time())
 	var.dataValue = dv
+
 	local var = objects:getChild({idx..":NewObject"})
 	print('NewObject', var)
 	print('MyVariable', var:getChild("MyVariable"))
 
-	local prop = var:getChild("MyProperty")
+	local prop = var:getChild("MyProperty110")
 	prop.value = opcua.Variant.new("i am a test")
 else
 	print("Newobject->MyVariable does not exits")

@@ -17,8 +17,8 @@ project "opcua"
 	buildoptions { '-Wpedantic', '-pedantic', '-pedantic-errors', '-Wno-noexcept-type', '-std=c++14', '-ftemplate-depth=2048', '-DUA_ARCHITECTURE_POSIX'}
 
 	libdirs { "../../build/bin" }
-	links { "pthread", "open62541" }
-	linkoptions { "-Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
+	links { "pthread", "open62541", "mbedtls", "mbedx509", "mbedcrypto" }
+	--linkoptions { "-Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
 
 	filter "configurations:Debug"
 		defines { "DEBUG" }

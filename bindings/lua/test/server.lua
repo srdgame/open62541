@@ -46,6 +46,17 @@ attr.userWriteMask = opcua.WriteMask.ALL
 attr.accessLevel = opcua.AccessLevel.RW
 --attr.userAccessLevel = opcua.AccessLevel.READ ~ opcua.AccessLevel.READ
 local myvar = newobject:addVariable(opcua.NodeId.new(idx, 98), "MyVariable", attr)
+local vc = opcua.ValueCallback:new(function(server, sessionId, sessionContext, nodeId, numericRange, dataValue)
+	print('ONREAD', nodeId.ns, nodeId.index)
+	print(numericRange)
+	print(dataValue.value:asValue(), dataValue.sourceTimestamp, dataValue.serverTimestamp)
+end,
+function(server, sessionId, sessionContext, nodeId, numericRange, dataValue)
+	print('ONWRITE', nodeId.ns, nodeId.index)
+	print(numericRange)
+	print(dataValue.value:asValue(), dataValue.sourceTimestamp, dataValue.serverTimestamp)
+end)
+server:setVariableNode_valueCallback(opcua.NodeId.new(idx, 98), vc)
 
 local attr = opcua.VariableAttributes.new()
 attr.displayName = opcua.LocalizedText.new("en_US", "My Time Ticker")
@@ -57,15 +68,14 @@ local attr = opcua.VariableAttributes.new()
 attr.displayName = opcua.LocalizedText.new("en_US", "My Property DisplayName")
 attr.description = opcua.LocalizedText.new("en_US", "My Property Description")
 attr.value = opcua.Variant.new(8.8)
---[[
 attr.writeMask = opcua.WriteMask.ALL
 attr.userWriteMask = opcua.WriteMask.ALL
-]]
 attr.accessLevel = opcua.AccessLevel.RW
 --attr.userAccessLevel = opcua.AccessLevel.READ ~ opcua.AccessLevel.READ
 
 for i = 110, 500 do
-	local myprop, err = newobject:addVariable(opcua.NodeId.new(idx, i), "MyProperty"..i, attr)
+	local nid = opcua.NodeId.new(idx, i)
+	local myprop, err = newobject:addVariable(nid, "MyProperty"..i, attr)
 	assert(myprop, err)
 	myprop.displayName = opcua.LocalizedText.new("en_US", "AAAAAAAAAAAAA"..i)
 end

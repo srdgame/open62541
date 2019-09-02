@@ -65,12 +65,12 @@ class UA_Server_Proxy;
 
 struct UA_ValueCallback_Proxy {
 	UA_ValueCallback _callback;
-	typedef std::function<UA_StatusCode (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
+	typedef std::function<void (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
 										void *sesssionContext, const UA_NodeId* nodeId,
 										const UA_NumericRange *range,
 										const UA_DataValue* value) > OnReadCallback;
 
-	typedef std::function<UA_StatusCode (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
+	typedef std::function<void (UA_Server_Proxy *proxy, const UA_NodeId* sessionId,
 										void *sesssionContext, const UA_NodeId* nodeId,
 										const UA_NumericRange *range,
 										const UA_DataValue* data) > OnWriteCallback;
@@ -649,8 +649,10 @@ void UA_ValueCallback_Proxy::ReadCallback(UA_Server *server, const UA_NodeId *se
 			   void *nodeContext, const UA_NumericRange *range,
 			   const UA_DataValue *value) {
 	UA_ValueCallback_Proxy* p = (UA_ValueCallback_Proxy*)nodeContext;
-	if (p->_proxy->_server != server) {
+	// printf("ReadCallback %lld\n", p);
+	if (p->_proxy == nullptr || p->_proxy->_server != server) {
 		// Code error here
+		printf("ReadCallback Error!!!\n");
 		return;
 	}
 	if (p->_read) {
@@ -663,8 +665,10 @@ void UA_ValueCallback_Proxy::WriteCallback(UA_Server *server, const UA_NodeId *s
 				void *nodeContext, const UA_NumericRange *range,
 				const UA_DataValue *data) {
 	UA_ValueCallback_Proxy* p = (UA_ValueCallback_Proxy*)nodeContext;
-	if (p->_proxy->_server != server) {
+	// printf("WriteCallback %lld\n", p);
+	if (p->_proxy == nullptr || p->_proxy->_server != server) {
 		// Code error here
+		printf("ReadCallback Error!!!\n");
 		return;
 	}
 	if (p->_write) {
