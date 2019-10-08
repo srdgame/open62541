@@ -173,7 +173,7 @@ do {\
 			DT##_copy(&obj.DN, &val); return val; \
 		}, \
 		[](CLASS& obj, const DT& val) { \
-			DT##_deleteMembers(&obj.DN); \
+			DT##_clear(&obj.DN); \
 			DT##_copy(&val, &obj.DN); \
 		} \
 	)
@@ -185,7 +185,7 @@ do {\
 			DT##_copy(&obj.DN, &val); return val; \
 		}, \
 		[](CLASS& obj, const DT& val) { \
-			DT##_deleteMembers(&obj.DN); \
+			DT##_clear(&obj.DN); \
 			DT##_copy(&val, &obj.DN); \
 			obj.hasDN = true; \
 		} \
