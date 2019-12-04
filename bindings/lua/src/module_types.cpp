@@ -294,6 +294,11 @@ void reg_opcua_types(sol::table& module) {
 			[](int ns, const char* val){ return UA_NODEID_STRING_ALLOC(ns, val); },
 			[](int ns, UA_Guid val){ UA_NODEID_GUID(ns, val); }
 		),
+		"byte_string", sol::initializers([](UA_NodeId& id, int ns, const char* val) {
+			id.namespaceIndex = ns;
+			id.identifierType = UA_NODEIDTYPE_BYTESTRING;
+			id.identifier.byteString = UA_BYTESTRING_ALLOC(val);
+		}),
 		"__gc", sol::destructor(UA_NodeId_clear),
 		"__eq", [](const UA_NodeId& left, const UA_NodeId& right) { return UA_NodeId_equal(&left, &right); },
 		"isNull", [](const UA_NodeId& id) { return UA_NodeId_isNull(&id); },
