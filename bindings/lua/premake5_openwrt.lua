@@ -17,7 +17,7 @@ project "opcua"
 	buildoptions { '-Wpedantic', '-pedantic', '-pedantic-errors', '-DSOL_NO_EXCEPTIONS=1', '-std=c++14', '-ftemplate-depth=2048', '-DUA_ARCHITECTURE_POSIX'}
 
 	libdirs { "../../build_openwrt/bin" }
-	links { "pthread", "open62541" }
+	links { "pthread", "open62541", "uuid" }
 	linkoptions { "-Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
 
 	filter "configurations:Debug"

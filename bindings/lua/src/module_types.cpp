@@ -1,5 +1,6 @@
 #include <iomanip>
 //#include <iostream>
+#include <uuid/uuid.h>
 
 #include "open62541.h"
 
@@ -287,6 +288,23 @@ void reg_opcua_types(sol::table& module) {
 			[](UA_DataValue& obj, UA_UInt16 seconds) { obj.serverPicoseconds = seconds, obj.hasServerPicoseconds = true; }
 		)
 	),
+
+	module.new_usertype<UA_Guid>("Guid",
+		"new", sol::initializers([](UA_Guid& guid, const char* val) { 
+			uuid_t uu;
+			if (0 == uuid_parse(val, uu)) {
+				memcpy(&guid, &uu, sizeof(uuid_t));
+			}
+		}),
+		"__tostring", [](const UA_Guid& guid) {
+			uuid_t uu;
+			memcpy(&uu, &guid, sizeof(uuid_t));
+			char temp[128];
+			memset(temp, 0, 128);
+			uuid_unparse(uu, temp);
+			return std::string(temp);
+		}
+	);
 
 	module.new_usertype<UA_NodeId>("NodeId",
 		"new", sol::factories(
