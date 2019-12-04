@@ -65,6 +65,19 @@ attr.description = opcua.LocalizedText.new("en_US", "My Time Ticker Description"
 attr.value = opcua.Variant.datetime(opcua.DateTime.now())
 local mytick = newobject:addVariable(opcua.NodeId.new(idx, 101), "MyTimeTick", attr)
 
+local battr = opcua.VariableAttributes.new()
+battr.displayName = opcua.LocalizedText.new("en_US", "My Boolean Property DisplayName")
+battr.description = opcua.LocalizedText.new("en_US", "My Boolean Property Description")
+battr.value = opcua.Variant.new(false)
+battr.writeMask = opcua.WriteMask.ALL
+battr.userWriteMask = opcua.WriteMask.ALL
+battr.accessLevel = opcua.AccessLevel.RW
+
+local bnid = opcua.NodeId.new(idx, 109)
+local bprop, err = newobject:addVariable(bnid, "MyBoolProperty", battr)
+print(bprop, err)
+bprop.displayName = opcua.LocalizedText.new("en_US", "MyBoolean Property!!!")
+
 local attr = opcua.VariableAttributes.new()
 attr.displayName = opcua.LocalizedText.new("en_US", "My Property DisplayName")
 attr.description = opcua.LocalizedText.new("en_US", "My Property Description")
