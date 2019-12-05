@@ -312,10 +312,12 @@ void reg_opcua_types(sol::table& module) {
 			[](int ns, const char* val){ return UA_NODEID_STRING_ALLOC(ns, val); },
 			[](int ns, UA_Guid val){ UA_NODEID_GUID(ns, val); }
 		),
-		"byte_string", sol::initializers([](UA_NodeId& id, int ns, const char* val) {
+		"byte_string", sol::initializers([](UA_NodeId& id, int ns, const std::string& val) {
 			id.namespaceIndex = ns;
 			id.identifierType = UA_NODEIDTYPE_BYTESTRING;
-			id.identifier.byteString = UA_BYTESTRING_ALLOC(val);
+			UA_ByteString_allocBuffer(&id.identifier.byteString, val.length());
+			memcpy(&id.identifier.byteString.data, val.c_str(), val.length());
+			//std::cout << val.length() << std::endl;
 		}),
 		"__gc", sol::destructor(UA_NodeId_clear),
 		"__eq", [](const UA_NodeId& left, const UA_NodeId& right) { return UA_NodeId_equal(&left, &right); },

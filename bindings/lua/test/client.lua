@@ -25,6 +25,9 @@ local guid = opcua.Guid.new(uuid)
 
 print(guid)
 
+local bstr = 'aaa'..string.char(0)..string.char(1)
+local id = opcua.NodeId.byte_string(1, bstr)
+
 local client = opcua.Client.new()
 
 local config = client.config
