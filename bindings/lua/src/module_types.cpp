@@ -54,6 +54,15 @@ UA_DateTime_toString(UA_DateTime t) {
     return str;
 }
 
+const UA_Argument UA_Argument_default = {
+	{0, NULL},				/* name */
+	UA_NODEID_NULL,			/* dataType */
+	0,                      /* valueRank */
+	0,                      /* arrayDimensionsSize */
+	NULL,					/* arrayDimensions */
+	{{0, NULL}, {0, NULL}}, /* description */
+};
+
 void reg_opcua_types(sol::table& module) {
 	module.new_usertype<UA_DateTime>("DateTime",
 		"new", sol::factories([](void) { return UA_DateTime_now(); }),
@@ -453,6 +462,19 @@ void reg_opcua_types(sol::table& module) {
 		"userWriteMask", &UA_MethodAttributes::userWriteMask,
 		"executable", &UA_MethodAttributes::executable,
 		"userExecutable", &UA_MethodAttributes::userExecutable
+	);
+
+	module.new_usertype<UA_Argument>("Argument",
+		"new", sol::factories([](){
+			return UA_Argument_default;
+		}),
+		"__gc", sol::destructor(UA_Argument_clear),
+		"name", &UA_Argument::name,
+		"dataType", &UA_Argument::dataType,
+		"valueRank", &UA_Argument::valueRank,
+		"arrayDimensionsSize", &UA_Argument::arrayDimensionsSize,
+		"arrayDimensions", &UA_Argument::arrayDimensions,
+		"description", &UA_Argument::description
 	);
 }
 

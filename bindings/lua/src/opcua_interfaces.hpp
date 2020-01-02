@@ -123,7 +123,7 @@ public:
 			const UA_NodeId referenceTypeId,
 			const UA_QualifiedName browseName,
 			const UA_MethodAttributes attr,
-			UA_MethodCallback method,
+			//UA_MethodCallback method, please use server/client for setting callback method
 			size_t inputArgumentsSize, const UA_Argument* inputArguments,
 			size_t outputArgumentsSize, const UA_Argument* outputArguments,
 			void *nodeContext,

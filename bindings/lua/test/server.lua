@@ -94,6 +94,20 @@ for i = 110, 500 do
 	myprop.displayName = opcua.LocalizedText.new("en_US", "AAAAAAAAAAAAA"..i)
 end
 
+
+--- Method node
+
+local mattr = opcua.MethodAttributes.new()
+mattr.displayName = opcua.LocalizedText.new("en_US", "My Method DisplayName")
+mattr.description = opcua.LocalizedText.new("en_US", "My Method Description")
+mattr.writeMask = opcua.WriteMask.ALL
+mattr.userWriteMask = opcua.WriteMask.ALL
+mattr.executable = true
+mattr.userExecutable = true
+
+local mid = opcua.NodeId.new(idx, 1000)
+local mprop, err = assert(newobject:addMethod(mid, "Method A", mattr))
+
 local root = server:getRootNode()
 print("Root node is", root)
 print("Children are:")
