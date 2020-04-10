@@ -720,8 +720,10 @@ void reg_opcua_client(sol::table& module) {
 		"protocolVersion", &UA_ConnectionConfig::protocolVersion,
 		"sendBufferSize", &UA_ConnectionConfig::sendBufferSize,
 		"recvBufferSize", &UA_ConnectionConfig::recvBufferSize,
-		"maxMessageSize", &UA_ConnectionConfig::maxMessageSize,
-		"maxChunkCount", &UA_ConnectionConfig::maxChunkCount
+		"localMaxMessageSize", &UA_ConnectionConfig::localMaxMessageSize,
+		"remoteMaxMessageSize", &UA_ConnectionConfig::remoteMaxMessageSize,
+		"localMaxChunkCount", &UA_ConnectionConfig::localMaxChunkCount,
+		"remoteMaxChunkCount", &UA_ConnectionConfig::remoteMaxChunkCount
 	);
 	module.new_usertype<UA_ClientConfig_Proxy>("ClientConfig",
 		"new", sol::no_constructor, 
