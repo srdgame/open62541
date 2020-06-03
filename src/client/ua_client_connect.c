@@ -373,6 +373,14 @@ processOPNResponse(UA_Client *client, const UA_ByteString *message) {
             + (UA_DateTime) (response.securityToken.revisedLifetime
                     * (UA_Double) UA_DATETIME_MSEC * 0.75);
 
+    /* Replace the token. On the client side we don't use NextSecurityToken. */
+	/*
+		DIRK: Dirty fixes about session renewal
+    UA_ChannelSecurityToken_clear(&client->channel.securityToken);
+    UA_ChannelSecurityToken_copy(&response.securityToken, &client->channel.securityToken);
+    UA_ChannelSecurityToken_clear(&response.securityToken);
+	*/
+
     /* Move the nonce out of the response */
     UA_ByteString_clear(&client->channel.remoteNonce);
     client->channel.remoteNonce = response.serverNonce;
@@ -500,6 +508,15 @@ responseActivateSession(UA_Client *client, void *userdata, UA_UInt32 requestId,
     }
 
     client->sessionState = UA_SESSIONSTATE_ACTIVATED;
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+	// DIRK: force the publish requests to be send
+	if(client->currentlyOutStandingPublishRequests >= client->config.outStandingPublishRequests)
+		client->currentlyOutStandingPublishRequests--;
+
+	/*
+	client->currentlyOutStandingPublishRequests = 0;
+	*/
+#endif
     notifyClientState(client);
 }
 

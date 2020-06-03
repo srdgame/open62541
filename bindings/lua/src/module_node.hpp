@@ -45,13 +45,16 @@ struct UA_Node_Finder : public UA_Node_callback {
 		PT val; PT##_init(&val); \
 		auto reader = _mgr->getAttributeReader(); \
 		UA_StatusCode re = reader->read##PN(_id, &val); \
+		if (re != UA_STATUSCODE_GOOD) { \
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Read node:%s property failed. StatusCode:%s", toString(_id), UA_StatusCode_name(re)); \
+		} \
 		return val; \
 	} \
 	UA_StatusCode set##PN(const PT& val) const { \
 		auto writer = _mgr->getAttributeWriter(); \
 		auto re = writer->write##PN(_id, &val); \
 		if (re != UA_STATUSCODE_GOOD) { \
-			std::cout << "Write Property to :" << toString(_id) << " err_code: " << UA_StatusCode_name(re) << std::endl; \
+			UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Write node:%s property failed. StatusCode:%s", toString(_id), UA_StatusCode_name(re)); \
 		} \
 		return re; \
 	}

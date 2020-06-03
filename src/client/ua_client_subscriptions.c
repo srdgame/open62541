@@ -1156,6 +1156,7 @@ UA_Client_Subscriptions_processPublishResponse(UA_Client *client, UA_PublishRequ
          * numbers. (Probably some multi-threading synchronization issue.) */
         /* UA_Client_disconnect(client);
            return; */
+        sub->sequenceNumber = msg->sequenceNumber;
     }
     /* According to f), a keep-alive message contains no notifications and has the sequence number
      * of the next NotificationMessage that is to be sent => More than one consecutive keep-alive
@@ -1247,8 +1248,16 @@ UA_Client_Subscriptions_backgroundPublishInactivityCheck(UA_Client *client) {
 
 void
 UA_Client_Subscriptions_backgroundPublish(UA_Client *client) {
-    if(client->sessionState < UA_SESSIONSTATE_ACTIVATED)
+    if(client->sessionState != UA_SESSIONSTATE_ACTIVATED) {
         return;
+	}
+
+	// DIRK: Fix start
+	if(client->channel.state != UA_SECURECHANNELSTATE_OPEN ||
+			client->secureChannelHandshake) {
+        return;
+	}
+	// DIRK: Fix end
 
     /* The session must have at least one subscription */
     if(!LIST_FIRST(&client->subscriptions))
@@ -1276,9 +1285,13 @@ UA_Client_Subscriptions_backgroundPublish(UA_Client *client) {
                                             &UA_TYPES[UA_TYPES_PUBLISHRESPONSE],
                                             (void*)request, &requestId, 0);
         if(retval != UA_STATUSCODE_GOOD) {
+            client->currentlyOutStandingPublishRequests--;
             UA_PublishRequest_delete(request);
             return;
-        }
+		} else {
+			/// DIRK: send one once!
+			return;
+		}
     }
 }
 

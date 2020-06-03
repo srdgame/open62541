@@ -444,13 +444,25 @@ __UA_Client_Service(UA_Client *client, const void *request,
     /* Initialize. Response is valied in case of aborting. */
     UA_init(response, responseType);
 
+	// DIRK: Fix start
+	if(client->secureChannelHandshake) {
+		UA_LOG_INFO(&client->config.logger, UA_LOGCATEGORY_CLIENT,
+				"SecureChannel is renewal....");
+		// Set proper serviceResult
+		UA_ResponseHeader *respHeader = (UA_ResponseHeader*)response;
+		respHeader->serviceResult = UA_STATUSCODE_BADINVALIDSTATE;
+		return;
+
+	}
+
     if(client->channel.state != UA_SECURECHANNELSTATE_OPEN) {
         UA_LOG_INFO(&client->config.logger, UA_LOGCATEGORY_CLIENT,
                     "SecureChannel must be connected before sending requests");
         UA_ResponseHeader *respHeader = (UA_ResponseHeader*)response;
-        respHeader->serviceResult = UA_STATUSCODE_BADCONNECTIONCLOSED;
+        respHeader->serviceResult = UA_STATUSCODE_BADINVALIDSTATE;
 		return;
     }
+	// DIRK: Fix end
 
     /* Send the request */
     UA_UInt32 requestId;
