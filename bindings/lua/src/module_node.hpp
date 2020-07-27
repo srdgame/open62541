@@ -41,7 +41,7 @@ struct UA_Node_Finder : public UA_Node_callback {
 };
 
 #define MAP_NODE_PROPERTY(PT, PN) \
-	PT get##PN() const { \
+	PT get_##PN() const { \
 		PT val; PT##_init(&val); \
 		auto reader = _mgr->getAttributeReader(); \
 		UA_StatusCode re = reader->read##PN(_id, &val); \
@@ -50,7 +50,7 @@ struct UA_Node_Finder : public UA_Node_callback {
 		} \
 		return val; \
 	} \
-	UA_StatusCode set##PN(const PT& val) const { \
+	UA_StatusCode set_##PN(const PT& val) const { \
 		auto writer = _mgr->getAttributeWriter(); \
 		auto re = writer->write##PN(_id, &val); \
 		if (re != UA_STATUSCODE_GOOD) { \
@@ -59,7 +59,7 @@ struct UA_Node_Finder : public UA_Node_callback {
 		return re; \
 	}
 
-#define SOL_MAP_NODE_PROPERTY(LN, DN) #LN, sol::property(&UA_Node::get##DN, &UA_Node::set##DN)
+#define SOL_MAP_NODE_PROPERTY(LN, DN) #LN, sol::property(&UA_Node::get_##DN, &UA_Node::set_##DN)
 //#define SOL_MAP_NODE_PROPERTY(LN, DN) "get"#DN, &UA_Node::get##DN, "set"#DN, &UA_Node::set##DN
 
 
