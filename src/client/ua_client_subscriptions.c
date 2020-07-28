@@ -1253,8 +1253,7 @@ UA_Client_Subscriptions_backgroundPublish(UA_Client *client) {
 	}
 
 	// DIRK: Fix start
-	if(client->channel.state != UA_SECURECHANNELSTATE_OPEN ||
-			client->secureChannelHandshake) {
+	if(client->channel.state != UA_SECURECHANNELSTATE_OPEN) {
         return;
 	}
 	// DIRK: Fix end
