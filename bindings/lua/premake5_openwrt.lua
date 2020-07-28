@@ -14,11 +14,11 @@ project "opcua"
 	files { "./src/**.hpp", "./src/**.cpp"}
 
 	-- buildoptions { '-Wno-unknown-warning', '-Wno-unknown-warning-option', '-Wall', '-Wextra', '-Wpedantic', '-pedantic', '-pedantic-errors', '-Wno-noexcept-type', '-std=c++14', '-ftemplate-depth=1024' }
-	buildoptions { '-Wpedantic', '-pedantic', '-pedantic-errors', '-DSOL_NO_EXCEPTIONS=1', '-std=c++14', '-ftemplate-depth=2048', '-DUA_ARCHITECTURE_POSIX'}
+	buildoptions { '-Wpedantic', '-pedantic', '-pedantic-errors', '-DSOL_NO_EXCEPTIONS=1', '-std=c++14', '-ftemplate-depth=4096', '-DUA_ARCHITECTURE_POSIX'}
 
 	libdirs { "../../build_openwrt/bin" }
 	links { "pthread", "open62541", "uuid" }
-	linkoptions { "-Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
+	linkoptions { "-fPIC -Wl,--whole-archive -lmbedtls -lmbedx509 -lmbedcrypto -Wl,--no-whole-archive" }
 
 	filter "configurations:Debug"
 		defines { "DEBUG" }
