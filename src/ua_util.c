@@ -234,7 +234,7 @@ UA_NodeId_print(const UA_NodeId *id, UA_String *output) {
              * chars, delim = 1 , nullbyte = 1-> 17 chars */
             output->length = nsLen + 2 + 10 + 1;
             output->data = (UA_Byte*)UA_malloc(output->length);
-			memset(nodeIdStr->data, 0, nodeIdStr->length);
+			memset(output->data, 0, output->length);
             if(output->data == NULL) {
                 output->length = 0;
                 UA_free(nsStr);
@@ -248,7 +248,7 @@ UA_NodeId_print(const UA_NodeId *id, UA_String *output) {
             /* ns (16bit) = 5 chars, strlen + nullbyte */
             output->length = nsLen + 2 + id->identifier.string.length + 1;
             output->data = (UA_Byte*)UA_malloc(output->length);
-			memset(nodeIdStr->data, 0, nodeIdStr->length);
+			memset(output->data, 0, output->length);
             if(output->data == NULL) {
                 output->length = 0;
                 UA_free(nsStr);
@@ -262,7 +262,7 @@ UA_NodeId_print(const UA_NodeId *id, UA_String *output) {
             /* ns (16bit) = 5 chars + strlen(A123456C-0ABC-1A2B-815F-687212AAEE1B)=36 + nullbyte */
             output->length = nsLen + 2 + 36 + 1;
             output->data = (UA_Byte*)UA_malloc(output->length);
-			memset(nodeIdStr->data, 0, nodeIdStr->length);
+			memset(output->data, 0, output->length);
             if(output->data == NULL) {
                 output->length = 0;
                 UA_free(nsStr);
@@ -277,7 +277,7 @@ UA_NodeId_print(const UA_NodeId *id, UA_String *output) {
             /* ns (16bit) = 5 chars + LEN + nullbyte */
             output->length = nsLen + 2 + byteStr.length + 1;
             output->data = (UA_Byte*)UA_malloc(output->length);
-			memset(nodeIdStr->data, 0, nodeIdStr->length);
+			memset(output->data, 0, output->length);
             if(output->data == NULL) {
                 output->length = 0;
                 UA_String_deleteMembers(&byteStr);
