@@ -133,50 +133,6 @@ generateRemoteKeys(const UA_SecureChannel *channel) {
     return retval;
 }
 
-<<<<<<< HEAD
-=======
-UA_StatusCode
-UA_SecureChannel_generateNewKeys(UA_SecureChannel *channel) {
-    const UA_SecurityPolicy *sp = channel->securityPolicy;
-    if(!sp)
-        return UA_STATUSCODE_BADINTERNALERROR;
-    UA_LOG_DEBUG_CHANNEL(sp->logger, channel, "Generating SecureChannel keys");
-
-    UA_StatusCode retval = generateLocalKeys(channel, sp);
-    if(retval != UA_STATUSCODE_GOOD) {
-        UA_LOG_ERROR(sp->logger, UA_LOGCATEGORY_SECURECHANNEL,
-                     "Could not generate a local key");
-        return retval;
-    }
-
-    retval = generateRemoteKeys(channel, sp);
-    if(retval != UA_STATUSCODE_GOOD) {
-        UA_LOG_ERROR(sp->logger, UA_LOGCATEGORY_SECURECHANNEL,
-                     "Could not generate a remote key");
-        return retval;
-    }
-
-    return retval;
-}
-
-UA_StatusCode
-UA_SecureChannel_revolveTokens(UA_SecureChannel *channel) {
-    const UA_SecurityPolicy *sp = channel->securityPolicy;
-    if(!sp)
-        return UA_STATUSCODE_BADINTERNALERROR;
-
-    if(channel->nextSecurityToken.tokenId == 0) /* no next security token issued */
-        return UA_STATUSCODE_BADSECURECHANNELTOKENUNKNOWN;
-
-    UA_ChannelSecurityToken_clear(&channel->securityToken);
-    UA_ChannelSecurityToken_copy(&channel->nextSecurityToken, &channel->securityToken);
-    UA_ChannelSecurityToken_init(&channel->nextSecurityToken);
-
-    /* remote keys are generated later on */
-    return generateLocalKeys(channel, sp);
-}
-
->>>>>>> 3c31d47d... Dirty fixes about session renewal
 /***************************/
 /* Send Asymmetric Message */
 /***************************/

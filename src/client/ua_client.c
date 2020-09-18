@@ -449,7 +449,6 @@ __UA_Client_Service(UA_Client *client, const void *request,
                     "SecureChannel must be connected before sending requests");
         UA_ResponseHeader *respHeader = (UA_ResponseHeader*)response;
         respHeader->serviceResult = UA_STATUSCODE_BADINVALIDSTATE;
-		// DIRK: Fix end
 		return;
     }
 
