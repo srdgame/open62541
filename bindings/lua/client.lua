@@ -12,10 +12,9 @@ config.recvBufferSize = 65535
 config.maxMessageSize = 0
 config.maxChunkCount = 0
 
-local client = opcua.Client.new(5000, 10 * 60 * 1000, config)
---local r, err = client:connect_username("opc.tcp://127.0.0.1:4840", "user1", "password")
---local r, err = client:connect("opc.tcp://127.0.0.1:4840")
-local r, err = client:connect("opc.tcp://172.30.1.141:4840")
+local client = opcua.Client.new("opc.tcp://172.30.1.141:4840", 5000, 10 * 60 * 1000, config)
+--local r, err = client:connect_username("user1", "password")
+local r, err = client:connect()
 print(r, err)
 
 local root = client:getRootNode()
