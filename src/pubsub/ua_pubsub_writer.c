@@ -841,6 +841,18 @@ UA_Server_getDataSetWriterConfig(UA_Server *server, const UA_NodeId dsw,
     return retVal;
 }
 
+UA_StatusCode
+UA_Server_DataSetWriter_getState(UA_Server *server, UA_NodeId dataSetWriterIdentifier,
+                               UA_PubSubState *state) {
+    if((server == NULL) || (state == NULL))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    UA_DataSetWriter *currentDataSetWriter = UA_DataSetWriter_findDSWbyId(server, dataSetWriterIdentifier);
+    if(currentDataSetWriter == NULL)
+        return UA_STATUSCODE_BADNOTFOUND;
+    *state = currentDataSetWriter->state;
+    return UA_STATUSCODE_GOOD;
+}
+
 UA_DataSetWriter *
 UA_DataSetWriter_findDSWbyId(UA_Server *server, UA_NodeId identifier) {
     UA_PubSubConnection *pubSubConnection;
@@ -1045,6 +1057,18 @@ UA_Server_updateWriterGroupConfig(UA_Server *server, UA_NodeId writerGroupIdenti
     return UA_STATUSCODE_GOOD;
 }
 
+UA_StatusCode
+UA_Server_WriterGroup_getState(UA_Server *server, UA_NodeId writerGroupIdentifier,
+                               UA_PubSubState *state) {
+    if((server == NULL) || (state == NULL))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    UA_WriterGroup *currentWriterGroup = UA_WriterGroup_findWGbyId(server, writerGroupIdentifier);
+    if(currentWriterGroup == NULL)
+        return UA_STATUSCODE_BADNOTFOUND;
+    *state = currentWriterGroup->state;
+    return UA_STATUSCODE_GOOD;
+}
+
 UA_WriterGroup *
 UA_WriterGroup_findWGbyId(UA_Server *server, UA_NodeId identifier){
     UA_PubSubConnection *tmpConnection;
@@ -1159,6 +1183,10 @@ UA_WriterGroup_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Writer
                 case UA_PUBSUBSTATE_PAUSED:
                     break;
                 case UA_PUBSUBSTATE_OPERATIONAL:
+                    UA_PubSubManager_removeRepeatedPubSubCallback(server, writerGroup->publishCallbackId);
+                    LIST_FOREACH(dataSetWriter, &writerGroup->writers, listEntry){
+                        UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dataSetWriter);
+                    }      
                     break;
                 case UA_PUBSUBSTATE_ERROR:
                     return UA_STATUSCODE_GOOD;
@@ -1166,6 +1194,7 @@ UA_WriterGroup_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Writer
                     UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
                                    "Received unknown PubSub state!");
             }
+            writerGroup->state = UA_PUBSUBSTATE_ERROR;
             break;
         default:
             UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
@@ -1219,6 +1248,15 @@ UA_Server_addDataSetWriter(UA_Server *server,
     UA_DataSetWriter *newDataSetWriter = (UA_DataSetWriter *) UA_calloc(1, sizeof(UA_DataSetWriter));
     if(!newDataSetWriter)
         return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    if (wg->state == UA_PUBSUBSTATE_OPERATIONAL) {
+        retVal = UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_OPERATIONAL, newDataSetWriter);
+        if (retVal != UA_STATUSCODE_GOOD) {
+            UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                            "Add DataSetWriter failed. setPubSubState failed.");
+            return retVal;
+        }
+    }
 
     //copy the config into the new dataSetWriter
     UA_DataSetWriterConfig tmpDataSetWriterConfig;
@@ -1994,7 +2032,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     UA_LOG_DEBUG(&server->config.logger, UA_LOGCATEGORY_SERVER, "Publish Callback");
 
     if(!writerGroup) {
-        UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
                        "Publish failed. WriterGroup not found");
         return;
     }
@@ -2006,16 +2044,18 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     /* Binary or Json encoding?  */
     if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP &&
        writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_JSON) {
-        UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
                        "Publish failed: Unknown encoding type.");
+        UA_WriterGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, writerGroup);
         return;
     }
 
     /* Find the connection associated with the writer */
     UA_PubSubConnection *connection = writerGroup->linkedConnection;
     if(!connection) {
-        UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
                        "Publish failed. PubSubConnection invalid.");
+        UA_WriterGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, writerGroup);
         return;
     }
 
@@ -2023,8 +2063,13 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         UA_StatusCode res =
             sendBufferedNetworkMessage(server, connection, &writerGroup->bufferedMessage,
                                        &writerGroup->config.transportSettings);
-        if(res == UA_STATUSCODE_GOOD)
+        if(res == UA_STATUSCODE_GOOD) {
             writerGroup->sequenceNumber++;
+        } else {
+            UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                       "Publish failed. RT fixed size. sendBufferedNetworkMessage failed");
+            UA_WriterGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, writerGroup);
+        }
         return;
     }
 
@@ -2044,55 +2089,61 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     UA_STACKARRAY(UA_UInt16, dsWriterIds, writerGroup->writersCount);
     UA_STACKARRAY(UA_DataSetMessage, dsmStore, writerGroup->writersCount);
     LIST_FOREACH(dsw, &writerGroup->writers, listEntry) {
-        /* Find the dataset */
-        UA_PublishedDataSet *pds =
-            UA_PublishedDataSet_findPDSbyId(server, dsw->connectedDataSet);
-        if(!pds) {
-            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
-                           "PubSub Publish: PublishedDataSet not found");
-            continue;
-        }
-
-        /* Generate the DSM */
-        UA_StatusCode res =
-            UA_DataSetWriter_generateDataSetMessage(server, &dsmStore[dsmCount], dsw);
-        if(res != UA_STATUSCODE_GOOD) {
-            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
-                           "PubSub Publish: DataSetMessage creation failed");
-            continue;
-        }
-
-        /* Send right away if there is only this DSM in a NM. If promoted fields
-         * are contained in the PublishedDataSet, then this DSM must go into a
-         * dedicated NM as well. */
-        if(pds->promotedFieldsCount > 0 || maxDSM == 1) {
-            if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP){
-                res = sendNetworkMessage(connection, writerGroup, &dsmStore[dsmCount],
-                                         &dsw->config.dataSetWriterId, 1,
-                                         &writerGroup->config.messageSettings,
-                                         &writerGroup->config.transportSettings);
-            } else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON) {
-                res = sendNetworkMessageJson(connection, &dsmStore[dsmCount],
-                                             &dsw->config.dataSetWriterId, 1,
-                                             &writerGroup->config.transportSettings);
+        if (dsw->state == UA_PUBSUBSTATE_OPERATIONAL) {
+            /* Find the dataset */
+            UA_PublishedDataSet *pds =
+                UA_PublishedDataSet_findPDSbyId(server, dsw->connectedDataSet);
+            if(!pds) {
+                UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                            "PubSub Publish: PublishedDataSet not found");
+                UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dsw);
+                continue;
             }
 
-            if(res != UA_STATUSCODE_GOOD)
-                UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
-                               "PubSub Publish: Could not send a NetworkMessage");
+            /* Generate the DSM */
+            UA_StatusCode res =
+                UA_DataSetWriter_generateDataSetMessage(server, &dsmStore[dsmCount], dsw);
+            if(res != UA_STATUSCODE_GOOD) {
+                UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                            "PubSub Publish: DataSetMessage creation failed");
+                UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dsw);
+                continue;
+            }
 
-            if(writerGroup->config.rtLevel == UA_PUBSUB_RT_DIRECT_VALUE_ACCESS) {
-                for(size_t i = 0; i < dsmStore[dsmCount].data.keyFrameData.fieldCount; ++i) {
-                    dsmStore[dsmCount].data.keyFrameData.dataSetFields[i].value.data = NULL;
+            /* Send right away if there is only this DSM in a NM. If promoted fields
+            * are contained in the PublishedDataSet, then this DSM must go into a
+            * dedicated NM as well. */
+            if(pds->promotedFieldsCount > 0 || maxDSM == 1) {
+                if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP){
+                    res = sendNetworkMessage(connection, writerGroup, &dsmStore[dsmCount],
+                                            &dsw->config.dataSetWriterId, 1,
+                                            &writerGroup->config.messageSettings,
+                                            &writerGroup->config.transportSettings);
+                } else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON) {
+                    res = sendNetworkMessageJson(connection, &dsmStore[dsmCount],
+                                                &dsw->config.dataSetWriterId, 1,
+                                                &writerGroup->config.transportSettings);
                 }
+
+                if(res != UA_STATUSCODE_GOOD) {
+                    UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                                "PubSub Publish: Could not send a NetworkMessage");
+                    UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dsw);
+                }
+
+                if(writerGroup->config.rtLevel == UA_PUBSUB_RT_DIRECT_VALUE_ACCESS) {
+                    for(size_t i = 0; i < dsmStore[dsmCount].data.keyFrameData.fieldCount; ++i) {
+                        dsmStore[dsmCount].data.keyFrameData.dataSetFields[i].value.data = NULL;
+                    }
+                }
+
+                UA_DataSetMessage_free(&dsmStore[dsmCount]);
+                continue;
             }
 
-            UA_DataSetMessage_free(&dsmStore[dsmCount]);
-            continue;
+            dsWriterIds[dsmCount] = dsw->config.dataSetWriterId;
+            dsmCount++;
         }
-
-        dsWriterIds[dsmCount] = dsw->config.dataSetWriterId;
-        dsmCount++;
     }
 
     /* Send the NetworkMessages with batched DataSetMessages */
@@ -2114,8 +2165,17 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         }
 
         if(res3 != UA_STATUSCODE_GOOD) {
-            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+            UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
                            "PubSub Publish: Sending a NetworkMessage failed");
+            LIST_FOREACH(dsw, &writerGroup->writers, listEntry) {
+                if (dsWriterIds[i * maxDSM] == dsw->config.dataSetWriterId) {
+                    if (UA_DataSetWriter_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dsw) != 
+                            UA_STATUSCODE_GOOD) {
+                        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                           "PubSub Publish: Setting DataSetWriter state to error failed");
+                    }
+                }
+            }
             continue;
         }
 

@@ -374,6 +374,19 @@ UA_Server_ReaderGroup_getConfig(UA_Server *server, UA_NodeId readerGroupIdentifi
     return UA_STATUSCODE_GOOD;
 }
 
+UA_StatusCode
+UA_Server_ReaderGroup_getState(UA_Server *server, UA_NodeId readerGroupIdentifier,
+                               UA_PubSubState *state)
+{
+    if((server == NULL) || (state == NULL))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    UA_ReaderGroup *currentReaderGroup = UA_ReaderGroup_findRGbyId(server, readerGroupIdentifier);
+    if(currentReaderGroup == NULL)
+        return UA_STATUSCODE_BADNOTFOUND;
+    *state = currentReaderGroup->state;
+    return UA_STATUSCODE_GOOD;
+}
+
 static void
 UA_Server_ReaderGroup_clear(UA_Server* server, UA_ReaderGroup *readerGroup) {
     /* To Do Call UA_ReaderGroupConfig_delete */
@@ -469,6 +482,10 @@ UA_ReaderGroup_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Reader
                 case UA_PUBSUBSTATE_PAUSED:
                     break;
                 case UA_PUBSUBSTATE_OPERATIONAL:
+                    UA_PubSubManager_removeRepeatedPubSubCallback(server, readerGroup->subscribeCallbackId);
+                    LIST_FOREACH(dataSetReader, &readerGroup->readers, listEntry){
+                        UA_DataSetReader_setPubSubState(server, UA_PUBSUBSTATE_ERROR, dataSetReader);
+                    }
                     break;
                 case UA_PUBSUBSTATE_ERROR:
                     return UA_STATUSCODE_GOOD;
@@ -476,6 +493,7 @@ UA_ReaderGroup_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Reader
                     UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
                                    "Received unknown PubSub state!");
             }
+            readerGroup->state = UA_PUBSUBSTATE_ERROR;
             break;
         default:
             UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
@@ -491,7 +509,7 @@ UA_Server_freezeReaderGroupConfiguration(UA_Server *server, const UA_NodeId read
         return UA_STATUSCODE_BADNOTFOUND;
 
     //PubSubConnection freezeCounter++
-    UA_NodeId pubSubConnectionId =  rg->linkedConnection;;
+    UA_NodeId pubSubConnectionId =  rg->linkedConnection;
     UA_PubSubConnection *pubSubConnection = UA_PubSubConnection_findConnectionbyId(server, pubSubConnectionId);
     pubSubConnection->configurationFreezeCounter++;
     pubSubConnection->configurationFrozen = UA_TRUE;
@@ -612,7 +630,7 @@ UA_Server_unfreezeReaderGroupConfiguration(UA_Server *server, const UA_NodeId re
     if(!rg)
         return UA_STATUSCODE_BADNOTFOUND;
     //PubSubConnection freezeCounter--
-    UA_NodeId pubSubConnectionId =  rg->linkedConnection;;
+    UA_NodeId pubSubConnectionId =  rg->linkedConnection;
     UA_PubSubConnection *pubSubConnection = UA_PubSubConnection_findConnectionbyId(server, pubSubConnectionId);
     pubSubConnection->configurationFreezeCounter--;
     if(pubSubConnection->configurationFreezeCounter == 0){
@@ -788,15 +806,27 @@ UA_DataSetReader *UA_ReaderGroup_findDSRbyId(UA_Server *server, UA_NodeId identi
 void UA_ReaderGroup_subscribeCallback(UA_Server *server, UA_ReaderGroup *readerGroup) {
     UA_PubSubConnection *connection =
         UA_PubSubConnection_findConnectionbyId(server, readerGroup->linkedConnection);
+    if (!connection) {
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER, "SubscribeCallback(): "
+            "Find linked connection failed");
+        UA_ReaderGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, readerGroup);
+        return;
+    }
     UA_ByteString buffer;
-
     if(UA_ByteString_allocBuffer(&buffer, 4096) != UA_STATUSCODE_GOOD) {
-        UA_LOG_INFO(&server->config.logger, UA_LOGCATEGORY_SERVER, "Message buffer alloc failed!");
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER, "SubscribeCallback(): Message buffer alloc failed!");
+        UA_ReaderGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, readerGroup);
         return;
     }
 
+    UA_StatusCode res = connection->channel->receive(connection->channel, &buffer, NULL, 1000);
+    if (UA_StatusCode_isBad(res)) {
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER, "SubscribeCallback(): Connection receive failed!");
+        UA_ReaderGroup_setPubSubState(server, UA_PUBSUBSTATE_ERROR, readerGroup);
+        UA_ByteString_deleteMembers(&buffer);
+        return;
+    }
     size_t currentPosition = 0;
-    connection->channel->receive(connection->channel, &buffer, NULL, 1000);
     if(buffer.length > 0) {
         if (readerGroup->config.rtLevel == UA_PUBSUB_RT_FIXED_SIZE) {
             do {
@@ -900,6 +930,18 @@ UA_Server_addDataSetReader(UA_Server *server, UA_NodeId readerGroupIdentifier,
 
     /* Allocate memory for new DataSetReader */
     UA_DataSetReader *newDataSetReader = (UA_DataSetReader *)UA_calloc(1, sizeof(UA_DataSetReader));
+    if(!newDataSetReader)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    if (readerGroup->state == UA_PUBSUBSTATE_OPERATIONAL) {
+        UA_StatusCode retVal = UA_DataSetReader_setPubSubState(server, UA_PUBSUBSTATE_OPERATIONAL, newDataSetReader);
+        if (retVal != UA_STATUSCODE_GOOD) {
+            UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                            "Add DataSetReader failed. setPubSubState failed.");
+            return retVal;
+        }
+    }
+
     /* Copy the config into the new dataSetReader */
     UA_DataSetReaderConfig_copy(dataSetReaderConfig, &newDataSetReader->config);
     newDataSetReader->linkedReaderGroup = readerGroup->identifier;
@@ -1060,6 +1102,19 @@ UA_DataSetReaderConfig_copy(const UA_DataSetReaderConfig *src,
     return UA_STATUSCODE_GOOD;
 }
 
+UA_StatusCode
+UA_Server_DataSetReader_getState(UA_Server *server, UA_NodeId dataSetReaderIdentifier,
+                               UA_PubSubState *state) {
+
+    if((server == NULL) || (state == NULL))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    UA_DataSetReader *currentDataSetReader = UA_ReaderGroup_findDSRbyId(server, dataSetReaderIdentifier);
+    if(currentDataSetReader == NULL)
+        return UA_STATUSCODE_BADNOTFOUND;
+    *state = currentDataSetReader->state;
+    return UA_STATUSCODE_GOOD;
+}
+
 //state machine methods not part of the open62541 state machine API
 UA_StatusCode
 UA_DataSetReader_setPubSubState(UA_Server *server, UA_PubSubState state, UA_DataSetReader *dataSetReader) {
@@ -1126,6 +1181,7 @@ UA_DataSetReader_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Data
                     UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
                                    "Received unknown PubSub state!");
             }
+            dataSetReader->state = UA_PUBSUBSTATE_ERROR;
             break;
         default:
             UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,

@@ -129,7 +129,7 @@ endforeach(arch_ ${architectures})
 option(BUILD_SHARED_LIBS "Enable building of shared libraries (dll/so)" OFF)
 set(UA_LOGLEVEL 300 CACHE STRING "Level at which logs shall be reported")
 set(UA_MULTITHREADING 0 CACHE STRING "Level of multithreading (0-99: No Multithreading, 100-199: Thread-Safe API, >=200: Internal Threads")
-option(UA_ENABLE_HISTORIZING "Enable server and client to provide historical access." OFF)
+option(UA_ENABLE_HISTORIZING "Enable basic support for historical access (client and server)" OFF)
 option(UA_ENABLE_METHODCALLS "Enable the Method service set" ON)
 option(UA_ENABLE_NODEMANAGEMENT "Enable dynamic addition and removal of nodes at runtime" ON)
 option(UA_ENABLE_SUBSCRIPTIONS "Enable subscriptions support." ON)
@@ -167,6 +167,12 @@ if(UA_NAMESPACE_ZERO STREQUAL "MINIMAL")
     set(UA_GENERATED_NAMESPACE_ZERO OFF)
 else()
     set(UA_GENERATED_NAMESPACE_ZERO ON)
+endif()
+
+if(UA_NAMESPACE_ZERO STREQUAL "FULL")
+    set(UA_GENERATED_NAMESPACE_ZERO_FULL ON)
+else()
+    set(UA_GENERATED_NAMESPACE_ZERO_FULL OFF)
 endif()
 
 if(MSVC AND UA_NAMESPACE_ZERO STREQUAL "FULL")
@@ -242,7 +248,7 @@ if(UA_MULTITHREADING GREATER 199)
     set(UA_ENABLE_IMMUTABLE_NODES ON)
 endif()
 
-option(UA_ENABLE_EXPERIMENTAL_HISTORIZING "Enable client experimental historical access features" OFF)
+option(UA_ENABLE_EXPERIMENTAL_HISTORIZING "Enable support for experimental historical access features (client)" OFF)
 mark_as_advanced(UA_ENABLE_EXPERIMENTAL_HISTORIZING)
 
 option(UA_FORCE_32BIT "Force compilation as 32-bit executable" OFF)
@@ -678,8 +684,19 @@ configure_file(include/open62541/config.h.in ${PROJECT_BINARY_DIR}/src_generated
 configure_file(open62541.pc.in ${PROJECT_BINARY_DIR}/src_generated/open62541.pc @ONLY)
 
 if(UA_ENABLE_DISCOVERY_MULTICAST)
+  include(GenerateExportHeader)
     set(MDNSD_LOGLEVEL 300 CACHE STRING "Level at which logs shall be reported" FORCE)
-    configure_file("deps/mdnsd/libmdnsd/mdnsd_config.h.in" "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config.h")
+    # create a "fake" empty library to generate the export header macros
+    add_library(libmdnsd ${PROJECT_SOURCE_DIR}/deps/mdnsd/libmdnsd/mdnsd.h)
+    set_property(TARGET libmdnsd PROPERTY LINKER_LANGUAGE CXX)
+    configure_file("deps/mdnsd/libmdnsd/mdnsd_config_extra.in"
+                   "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config_extra")
+    file(READ "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config_extra" MDNSD_CONFIG_EXTRA)
+    generate_export_header(libmdnsd
+      EXPORT_FILE_NAME "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config.h"
+      BASE_NAME MDNSD
+      DEFINE_NO_DEPRECATED
+      CUSTOM_CONTENT_FROM_VARIABLE MDNSD_CONFIG_EXTRA)
 endif()
 
 set(exported_headers ${exported_headers}
@@ -757,6 +774,7 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/open62541_queue.h
 # TODO: make client optional
 set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.c
+                ${PROJECT_SOURCE_DIR}/src/ua_types_prettyprint.c
                 ${PROJECT_BINARY_DIR}/src_generated/open62541/types_generated.c
                 ${PROJECT_BINARY_DIR}/src_generated/open62541/transport_generated.c
                 ${PROJECT_BINARY_DIR}/src_generated/open62541/statuscodes.c
@@ -930,11 +948,6 @@ if(UA_ENABLE_JSON_ENCODING)
                             ${PROJECT_SOURCE_DIR}/deps/itoa.c
                             ${PROJECT_SOURCE_DIR}/deps/atoi.c
                             ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.c)
-endif()
-
-if(UA_ENABLE_CUSTOM_LIBC)
-     list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/deps/musl/floatscan.c
-                             ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c)
 endif()
 
 if(UA_ENABLE_SUBSCRIPTIONS)
