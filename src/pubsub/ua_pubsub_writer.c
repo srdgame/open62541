@@ -2100,7 +2100,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     for(UA_UInt32 i = 0; i < nmCount; i++) {
         UA_Byte nmDsmCount = maxDSM;
         if(i == nmCount - 1  && (dsmCount % maxDSM))
-            nmDsmCount = (UA_Byte)dsmCount % maxDSM;
+            nmDsmCount = (UA_Byte)(dsmCount % maxDSM);
         UA_StatusCode res3 = UA_STATUSCODE_GOOD;
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP){
             res3 = sendNetworkMessage(connection, writerGroup, &dsmStore[i * maxDSM],
