@@ -30,8 +30,9 @@ jobs:
         id: build
         with:
           action: extension_opcua
+          workdir: bindings/lua
 
       - uses: actions/upload-artifact@v2
         with:
-          name: output_files
+          name: ${{ github.repository }}
           path: ${{ github.workspace }}/__output/**/*
