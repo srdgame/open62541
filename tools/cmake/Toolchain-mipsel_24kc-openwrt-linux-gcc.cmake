@@ -7,3 +7,4 @@ set(CMAKE_CXX_COMPILER mipsel-openwrt-linux-g++)
 
 set(MBEDTLS_FOLDER_INCLUDE "$ENV{STAGING_DIR}/usr/include")
 set(MBEDTLS_FOLDER_LIBRARY "$ENV{STAGING_DIR}/usr/lib")
+set(OPENSSL_ROOT_DIR "$ENV{STAGING_DIR}/usr")
