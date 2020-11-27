@@ -535,7 +535,9 @@ processMSGDecoded(UA_Server *server, UA_SecureChannel *channel, UA_UInt32 reques
     UA_Session *session = NULL;
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
     if(!UA_NodeId_isNull(&requestHeader->authenticationToken)) {
+        UA_LOCK(server->serviceMutex);
         retval = getBoundSession(server, channel, &requestHeader->authenticationToken, &session);
+        UA_UNLOCK(server->serviceMutex);
         if(retval != UA_STATUSCODE_GOOD)
             return sendServiceFault(channel, requestId, requestHeader->requestHandle,
                                     responseType, retval);
@@ -820,26 +822,8 @@ UA_Server_processBinaryMessage(UA_Server *server, UA_Connection *connection,
     connection->close(connection);
 }
 
-#if UA_MULTITHREADING >= 200
-static void
-deleteConnection(UA_Server *server, UA_Connection *connection) {
-    connection->free(connection);
-}
-#endif
-
 void
 UA_Server_removeConnection(UA_Server *server, UA_Connection *connection) {
     UA_Connection_detachSecureChannel(connection);
-#if UA_MULTITHREADING >= 200
-    UA_DelayedCallback *dc = (UA_DelayedCallback*)UA_malloc(sizeof(UA_DelayedCallback));
-    if(!dc)
-        return; /* Malloc cannot fail on OS's that support multithreading. They
-                 * rather kill the process. */
-    dc->callback = (UA_ApplicationCallback)deleteConnection;
-    dc->application = server;
-    dc->data = connection;
-    UA_WorkQueue_enqueueDelayed(&server->workQueue, dc);
-#else
     connection->free(connection);
-#endif
 }
