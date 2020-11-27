@@ -298,7 +298,7 @@ UA_Client_writeAttribute(UA_Client *client, const UA_WriteValue *value) {
             retval = UA_STATUSCODE_BADUNEXPECTEDERROR;
     }
 
-    UA_WriteResponse_deleteMembers(&wResp);
+    UA_WriteResponse_clear(&wResp);
     return retval;
 }
 
@@ -395,7 +395,7 @@ UA_Client_readAttribute(UA_Client *client, const UA_ReadValueId *item) {
     if(retval == UA_STATUSCODE_GOOD) {
 		UA_DataValue_copy(response.results, &res);
     }
-    UA_ReadResponse_deleteMembers(&response);
+    UA_ReadResponse_clear(&response);
 	return res;
 }
 
