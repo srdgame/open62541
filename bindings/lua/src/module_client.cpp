@@ -285,6 +285,9 @@ public:
 			UA_NodeId *outNewNodeId) {
 		return UA_Client_addDataTypeNode(_client, requestedNewNodeId, parentNodeId, referenceTypeId, browseName, attr, outNewNodeId);
 	}
+	const UA_DataType* findDataType(const UA_NodeId *typeId) {
+		return UA_Client_findDataType(_client, typeId);
+	}
 	UA_StatusCode addMethod(const UA_NodeId requestedNewNodeId,
 			const UA_NodeId parentNodeId,
 			const UA_NodeId referenceTypeId,
