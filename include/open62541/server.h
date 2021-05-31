@@ -11,6 +11,7 @@
  *    Copyright 2017 (c) Henrik Norrman
  *    Copyright 2018 (c) Fabian Arndt, Root-Core
  *    Copyright 2017-2020 (c) HMS Industrial Networks AB (Author: Jonas Green)
+ *    Copyright 2020-2021 (c) Christian von Arnim, ISW University of Stuttgart  (for VDW and umati)
  */
 
 #ifndef UA_SERVER_H_
@@ -32,6 +33,7 @@
 
 #ifdef UA_ENABLE_PUBSUB
 #include <open62541/plugin/pubsub.h>
+#include <open62541/server_pubsub.h>
 #endif
 
 #ifdef UA_ENABLE_HISTORIZING
@@ -66,6 +68,9 @@ _UA_BEGIN_DECLS
  * 4. After shutdown of the server, clean up the configuration (free memory)
  *
  * The :ref:`tutorials` provide a good starting point for this. */
+
+struct UA_PubSubConfiguration;
+typedef struct UA_PubSubConfiguration UA_PubSubConfiguration;
 
 typedef struct {
     UA_UInt32 min;
@@ -119,10 +124,9 @@ struct UA_ServerConfig {
     UA_ServerNetworkLayer *networkLayers;
     UA_String customHostname;
 
+    /* PubSub */
 #ifdef UA_ENABLE_PUBSUB
-    /*PubSub network layer */
-    size_t pubsubTransportLayersSize;
-    UA_PubSubTransportLayer *pubsubTransportLayers;
+    UA_PubSubConfiguration pubSubConfig;
 #endif
 
     /* Available security policies */
@@ -145,6 +149,16 @@ struct UA_ServerConfig {
     /* Node Lifecycle callbacks */
     UA_GlobalNodeLifecycle nodeLifecycle;
 
+    /** Copy the HasModellingRule reference in instances from the type
+     * definition in UA_Server_addObjectNode and UA_Server_addVariableNode.
+     * Part 3 - 6.4.4
+     * https://reference.opcfoundation.org/v104/Core/docs/Part3/6.4.4/#6.4.4.4
+     *   [...] it is not required that newly created or referenced instances
+     *   based on InstanceDeclarations have a ModellingRule, however, it is
+     *   allowed that they have any ModellingRule independent of the
+     *   ModellingRule of their InstanceDeclaration */
+    UA_Boolean modellingRulesOnInstances;
+
     /**
      * .. note:: See the section for :ref:`node lifecycle
      *    handling<node-lifecycle>`. */
@@ -164,10 +178,6 @@ struct UA_ServerConfig {
     UA_Server_AsyncOperationNotifyCallback asyncOperationNotifyCallback;
 #endif
 
-#if UA_MULTITHREADING >= 200
-    UA_UInt16 nThreads; /* Experimental feature */
-#endif
-
     /**
      * .. note:: See the section for :ref:`async
      *    operations<async-operations>`. */
@@ -177,11 +187,6 @@ struct UA_ServerConfig {
 
     /* Certificate Verification */
     UA_CertificateVerification certificateVerification;
-
-    /* Relax constraints for the InformationModel */
-    UA_Boolean relaxEmptyValueConstraint; /* Nominally, only variables with data
-                                           * type BaseDataType can have an empty
-                                           * value. */
 
     /* Limits for SecureChannels */
     UA_UInt16 maxSecureChannels;
@@ -360,7 +365,6 @@ UA_Server_run_shutdown(UA_Server *server);
 /**
  * Timed Callbacks
  * --------------- */
-typedef void (*UA_ServerCallback)(UA_Server *server, void *data);
 
 /* Add a callback for execution at a specified time. If the indicated time lies
  * in the past, then the callback is executed at the next iteration of the
@@ -1315,7 +1319,7 @@ UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
  *
  * The special UA_Server_addMethodNode_finish method needs to be used for method
  * nodes, since there you need to explicitly specifiy the input and output
- * arguments which are added in the finish step (if not yet already there) **/
+ * arguments which are added in the finish step (if not yet already there) */
 
 /* The ``attr`` argument must have a type according to the NodeClass.
  * ``VariableAttributes`` for variables, ``ObjectAttributes`` for objects, and
@@ -1389,14 +1393,6 @@ UA_Server_deleteReference(UA_Server *server, const UA_NodeId sourceNodeId,
  * would cause the node to be deleted. */
 
 #ifdef UA_ENABLE_SUBSCRIPTIONS_EVENTS
-
-/* The EventQueueOverflowEventType is defined as abstract, therefore we can not
- * create an instance of that type directly, but need to create a subtype. The
- * following is an arbitrary number which shall refer to our internal overflow
- * type. This is already posted on the OPC Foundation bug tracker under the
- * following link for clarification:
- * https://opcfoundation-onlineapplications.org/mantis/view.php?id=4206 */
-# define UA_NS0ID_SIMPLEOVERFLOWEVENTTYPE 4035
 
 /* Creates a node representation of an event
  *

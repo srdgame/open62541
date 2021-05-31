@@ -56,7 +56,7 @@ signActivateSessionRequest(UA_Client *client, UA_SecureChannel *channel,
 
     /* Prepare the signature */
     size_t signatureSize = sp->certificateSigningAlgorithm.
-        getLocalSignatureSize(sp, channel->channelContext);
+        getLocalSignatureSize(channel->channelContext);
     UA_StatusCode retval = UA_String_copy(&sp->certificateSigningAlgorithm.uri,
                                           &sd->algorithm);
     if(retval != UA_STATUSCODE_GOOD)
@@ -81,7 +81,7 @@ signActivateSessionRequest(UA_Client *client, UA_SecureChannel *channel,
            channel->remoteCertificate.length);
     memcpy(dataToSign.data + channel->remoteCertificate.length,
            client->remoteNonce.data, client->remoteNonce.length);
-    retval = sp->certificateSigningAlgorithm.sign(sp, channel->channelContext,
+    retval = sp->certificateSigningAlgorithm.sign(channel->channelContext,
                                                   &dataToSign, &sd->signature);
 
     /* Clean up */
@@ -132,19 +132,19 @@ encryptUserIdentityToken(UA_Client *client, const UA_String *userTokenSecurityPo
     
     /* Compute the encrypted length (at least one byte padding) */
     size_t plainTextBlockSize = sp->asymmetricModule.cryptoModule.
-        encryptionAlgorithm.getRemotePlainTextBlockSize(sp, channelContext);
+        encryptionAlgorithm.getRemotePlainTextBlockSize(channelContext);
+    size_t encryptedBlockSize = sp->asymmetricModule.cryptoModule.
+        encryptionAlgorithm.getRemoteBlockSize(channelContext);
     UA_UInt32 length = (UA_UInt32)(tokenData->length + client->remoteNonce.length);
     UA_UInt32 totalLength = length + 4; /* Including the length field */
     size_t blocks = totalLength / plainTextBlockSize;
-    if(totalLength  % plainTextBlockSize != 0)
+    if(totalLength % plainTextBlockSize != 0)
         blocks++;
-    size_t overHead =
-        UA_SecurityPolicy_getRemoteAsymEncryptionBufferLengthOverhead(sp, channelContext,
-                                                                      blocks * plainTextBlockSize);
+    size_t encryptedLength = blocks * encryptedBlockSize;
 
     /* Allocate memory for encryption overhead */
     UA_ByteString encrypted;
-    retval = UA_ByteString_allocBuffer(&encrypted, (blocks * plainTextBlockSize) + overHead);
+    retval = UA_ByteString_allocBuffer(&encrypted, encryptedLength);
     if(retval != UA_STATUSCODE_GOOD) {
         sp->channelModule.deleteContext(channelContext);
         return UA_STATUSCODE_BADOUTOFMEMORY;
@@ -168,8 +168,8 @@ encryptUserIdentityToken(UA_Client *client, const UA_String *userTokenSecurityPo
     encrypted.length = paddedLength;
 
     retval = sp->asymmetricModule.cryptoModule.encryptionAlgorithm.
-        encrypt(sp, channelContext, &encrypted);
-    encrypted.length = (blocks * plainTextBlockSize) + overHead;
+        encrypt(channelContext, &encrypted);
+    encrypted.length = encryptedLength;
 
     if(iit) {
         retval |= UA_String_copy(&sp->asymmetricModule.cryptoModule.encryptionAlgorithm.uri,
@@ -213,7 +213,7 @@ checkCreateSessionSignature(UA_Client *client, const UA_SecureChannel *channel,
     memcpy(dataToVerify.data + lc->length,
            client->localNonce.data, client->localNonce.length);
 
-    retval = sp->certificateSigningAlgorithm.verify(sp, channel->channelContext, &dataToVerify,
+    retval = sp->certificateSigningAlgorithm.verify(channel->channelContext, &dataToVerify,
                                                     &response->serverSignature.signature);
     UA_ByteString_clear(&dataToVerify);
     return retval;
@@ -524,6 +524,15 @@ activateSessionAsync(UA_Client *client) {
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
+    if (client->config.sessionLocaleIdsSize && client->config.sessionLocaleIds) {
+        retval = UA_Array_copy(client->config.sessionLocaleIds, client->config.sessionLocaleIdsSize,
+                               (void **)&request.localeIds, &UA_TYPES[UA_TYPES_LOCALEID]);
+        if (retval != UA_STATUSCODE_GOOD)
+            return retval;
+
+        request.localeIdsSize = client->config.sessionLocaleIdsSize;
+    }
+
     /* If not token is set, use anonymous */
     if(request.userIdentityToken.encoding == UA_EXTENSIONOBJECT_ENCODED_NOBODY) {
         UA_AnonymousIdentityToken *t = UA_AnonymousIdentityToken_new();
@@ -555,8 +564,15 @@ activateSessionAsync(UA_Client *client) {
                                             &UA_TYPES[UA_TYPES_ACTIVATESESSIONREQUEST],
                                             (UA_ClientAsyncServiceCallback) responseActivateSession,
                                             &UA_TYPES[UA_TYPES_ACTIVATESESSIONRESPONSE], NULL, NULL);
+
     UA_ActivateSessionRequest_clear(&request);
-    client->sessionState = UA_SESSIONSTATE_ACTIVATE_REQUESTED;
+    if(retval == UA_STATUSCODE_GOOD)
+        client->sessionState = UA_SESSIONSTATE_ACTIVATE_REQUESTED;
+    else
+        UA_LOG_ERROR(&client->config.logger, UA_LOGCATEGORY_CLIENT,
+                           "ActivateSession failed when sending the request with error code %s",
+                           UA_StatusCode_name(retval));
+
     return retval;
 }
 
@@ -696,8 +712,8 @@ responseGetEndpoints(UA_Client *client, void *userdata, UA_UInt32 requestId,
 
             /* Log the selected endpoint */
             UA_LOG_INFO(&client->config.logger, UA_LOGCATEGORY_CLIENT,
-                        "Selected Endpoint %.*s with SecurityMode %s and SecurityPolicy %.*s",
-                        (int)endpoint->endpointUrl.length, endpoint->endpointUrl.data,
+                        "Selected endpoint %lu in URL %.*s with SecurityMode %s and SecurityPolicy %.*s",
+                        (long unsigned)i, (int)endpoint->endpointUrl.length, endpoint->endpointUrl.data,
                         securityModeNames[endpoint->securityMode - 1],
                         (int)endpoint->securityPolicyUri.length,
                         endpoint->securityPolicyUri.data);
@@ -750,13 +766,17 @@ requestGetEndpoints(UA_Client *client) {
     request.requestHeader.timestamp = UA_DateTime_now();
     request.requestHeader.timeoutHint = 10000;
     request.endpointUrl = client->endpointUrl;
-    client->connectStatus =
+    UA_StatusCode retval =
         UA_Client_sendAsyncRequest(client, &request, &UA_TYPES[UA_TYPES_GETENDPOINTSREQUEST],
                                    (UA_ClientAsyncServiceCallback) responseGetEndpoints,
                                    &UA_TYPES[UA_TYPES_GETENDPOINTSRESPONSE], NULL, NULL);
-    if(client->connectStatus == UA_STATUSCODE_GOOD)
+    if(retval == UA_STATUSCODE_GOOD)
         client->endpointsHandshake = true;
-    return client->connectStatus;
+    else
+        UA_LOG_ERROR(&client->config.logger, UA_LOGCATEGORY_CLIENT,
+                           "RequestGetEndpoints failed when sending the request with error code %s",
+                           UA_StatusCode_name(retval));
+    return retval;
 }
 
 static void
@@ -815,7 +835,8 @@ createSessionAsync(UA_Client *client) {
                 return retval;
         }
         retval = client->channel.securityPolicy->symmetricModule.
-                 generateNonce(client->channel.securityPolicy, &client->localNonce);
+                 generateNonce(client->channel.securityPolicy->policyContext,
+                               &client->localNonce);
         if(retval != UA_STATUSCODE_GOOD)
             return retval;
     }
@@ -845,10 +866,16 @@ createSessionAsync(UA_Client *client) {
 
     if(retval == UA_STATUSCODE_GOOD)
         client->sessionState = UA_SESSIONSTATE_CREATE_REQUESTED;
+    else
+        UA_LOG_ERROR(&client->config.logger, UA_LOGCATEGORY_CLIENT,
+                           "CreateSession failed when sending the request with error code %s",
+                           UA_StatusCode_name(retval));
 
-    client->connectStatus = retval;
-    return client->connectStatus;
+    return retval;
 }
+
+static UA_StatusCode
+initConnect(UA_Client *client);
 
 UA_StatusCode
 connectIterate(UA_Client *client, UA_UInt32 timeout) {
@@ -869,16 +896,13 @@ connectIterate(UA_Client *client, UA_UInt32 timeout) {
         return UA_STATUSCODE_BADCONNECTIONCLOSED;
     }
 
-    /* TCP connection */
-    if(client->connection.state == UA_CONNECTIONSTATE_CLOSED) {
-        /* Reopen a new TCP connection */
-        client->connection =
-            client->config.initConnectionFunc(client->config.localConnectionConfig,
-                                              client->endpointUrl, client->config.timeout,
-                                              &client->config.logger);
-        return client->connectStatus;
-    } else if(client->connection.state == UA_CONNECTIONSTATE_OPENING) {
-        /* Poll the connection status */
+    /* The connection is closed. Reset the SecureChannel and open a new TCP
+     * connection */
+    if(client->connection.state == UA_CONNECTIONSTATE_CLOSED)
+        return initConnect(client);
+
+    /* Poll the connection status */
+    if(client->connection.state == UA_CONNECTIONSTATE_OPENING) {
         client->connectStatus =
             client->config.pollConnectionFunc(&client->connection, timeout,
                                               &client->config.logger);
@@ -916,7 +940,7 @@ connectIterate(UA_Client *client, UA_UInt32 timeout) {
 
     /* Open the SecureChannel */
     switch(client->channel.state) {
-    case UA_SECURECHANNELSTATE_CLOSED:
+    case UA_SECURECHANNELSTATE_FRESH:
         client->connectStatus = sendHELMessage(client);
         if(client->connectStatus == UA_STATUSCODE_GOOD) {
             client->channel.state = UA_SECURECHANNELSTATE_HEL_SENT;
@@ -944,11 +968,11 @@ connectIterate(UA_Client *client, UA_UInt32 timeout) {
     switch(client->sessionState) {
     case UA_SESSIONSTATE_CLOSED:
         if(!endpointUnconfigured(client)) {
-            createSessionAsync(client);
+            client->connectStatus = createSessionAsync(client);
             return client->connectStatus;
         }
         if(!client->endpointsHandshake) {
-            requestGetEndpoints(client);
+            client->connectStatus = requestGetEndpoints(client);
             return client->connectStatus;
         }
         receiveResponseAsync(client, timeout);
@@ -958,7 +982,7 @@ connectIterate(UA_Client *client, UA_UInt32 timeout) {
         receiveResponseAsync(client, timeout);
         return client->connectStatus;
     case UA_SESSIONSTATE_CREATED:
-        activateSessionAsync(client);
+        client->connectStatus = activateSessionAsync(client);
         return client->connectStatus;
     default:
         break;
@@ -997,7 +1021,7 @@ client_configure_securechannel(void *application, UA_SecureChannel *channel,
 }
 
 static UA_StatusCode
-initConnect(UA_Client *client, const char *endpointUrl) {
+initConnect(UA_Client *client) {
     if(client->connection.state > UA_CONNECTIONSTATE_CLOSED) {
         UA_LOG_WARNING(&client->config.logger, UA_LOGCATEGORY_CLIENT,
                        "Client already connected");
@@ -1023,10 +1047,6 @@ initConnect(UA_Client *client, const char *endpointUrl) {
     client->channel.certificateVerification = &client->config.certificateVerification;
     client->channel.processOPNHeader = client_configure_securechannel;
 
-    /* Set the endpoint URL the client connects to */
-    UA_String_clear(&client->endpointUrl);
-    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
-
     if(client->connection.free)
         client->connection.free(&client->connection);
 
@@ -1048,22 +1068,36 @@ initConnect(UA_Client *client, const char *endpointUrl) {
 
 UA_StatusCode
 UA_Client_connectAsync(UA_Client *client, const char *endpointUrl) {
+    /* Set the endpoint URL the client connects to */
+    UA_String_clear(&client->endpointUrl);
+    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
+
+    /* Open a Session when possible */
     client->noSession = false;
-    return initConnect(client, endpointUrl);
+
+    /* Connect Async */
+    return initConnect(client);
 }
 
 UA_StatusCode
 UA_Client_connectSecureChannelAsync(UA_Client *client, const char *endpointUrl) {
+    /* Set the endpoint URL the client connects to */
+    UA_String_clear(&client->endpointUrl);
+    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
+
+    /* Don't open a Session */
     client->noSession = true;
-    return initConnect(client, endpointUrl);
+
+    /* Connect Async */
+    return initConnect(client);
 }
 
 static UA_StatusCode
-connectSync(UA_Client *client, const char *endpointUrl) {
+connectSync(UA_Client *client) {
     UA_DateTime now = UA_DateTime_nowMonotonic();
     UA_DateTime maxDate = now + ((UA_DateTime)client->config.timeout * UA_DATETIME_MSEC);
 
-    UA_StatusCode retval = initConnect(client, endpointUrl);
+    UA_StatusCode retval = initConnect(client);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
@@ -1075,7 +1109,8 @@ connectSync(UA_Client *client, const char *endpointUrl) {
         now = UA_DateTime_nowMonotonic();
         if(maxDate < now)
             return UA_STATUSCODE_BADTIMEOUT;
-        retval = UA_Client_run_iterate(client, (UA_UInt32)((maxDate - now) / UA_DATETIME_MSEC));
+        retval = UA_Client_run_iterate(client,
+                                       (UA_UInt32)((maxDate - now) / UA_DATETIME_MSEC));
     }
 
     return retval;
@@ -1083,14 +1118,28 @@ connectSync(UA_Client *client, const char *endpointUrl) {
 
 UA_StatusCode
 UA_Client_connect(UA_Client *client, const char *endpointUrl) {
+    /* Set the endpoint URL the client connects to */
+    UA_String_clear(&client->endpointUrl);
+    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
+
+    /* Open a Session when possible */
     client->noSession = false;
-    return connectSync(client, endpointUrl);
+
+    /* Connect Synchronous */
+    return connectSync(client);
 }
 
 UA_StatusCode
 UA_Client_connectSecureChannel(UA_Client *client, const char *endpointUrl) {
+    /* Set the endpoint URL the client connects to */
+    UA_String_clear(&client->endpointUrl);
+    client->endpointUrl = UA_STRING_ALLOC(endpointUrl);
+
+    /* Don't open a Session */
     client->noSession = true;
-    return connectSync(client, endpointUrl);
+
+    /* Connect Synchronous */
+    return connectSync(client);
 }
 
 /************************/

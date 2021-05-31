@@ -52,11 +52,7 @@ static void setup(void) {
     server = UA_Server_new();
     UA_ServerConfig *config = UA_Server_getConfig(server);
     UA_ServerConfig_setDefault(config);
-
-    config->pubsubTransportLayers = (UA_PubSubTransportLayer*)
-            UA_malloc(sizeof(UA_PubSubTransportLayer));
-    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
-    config->pubsubTransportLayersSize++;
+    UA_ServerConfig_addPubSubTransportLayer(config, UA_PubSubTransportLayerUDPMP());
     UA_Server_run_startup(server);
 }
 
@@ -65,7 +61,8 @@ static void teardown(void) {
     UA_Server_delete(server);
 }
 
-static void receiveMultipleMessageRT(UA_PubSubConnection *connection, UA_DataSetReader *dataSetReader) {
+static void
+receiveMultipleMessageRT(UA_PubSubConnection *connection, UA_DataSetReader *dataSetReader) {
     UA_ByteString buffer;
     if (UA_ByteString_allocBuffer(&buffer, 4096) != UA_STATUSCODE_GOOD) {
         ck_abort_msg("Message buffer allocation failed!");
@@ -87,8 +84,8 @@ static void receiveMultipleMessageRT(UA_PubSubConnection *connection, UA_DataSet
                 ck_abort_msg("PubSub receive. Unknown message received. Will not be processed.");
             }
 
-            UA_Server_DataSetReader_process(server, dataSetReader,
-                                            dataSetReader->bufferedMessage.nm->payload.dataSetPayload.dataSetMessages);
+            UA_DataSetReader_process(server, dataSetReader,
+                                     dataSetReader->bufferedMessage.nm->payload.dataSetPayload.dataSetMessages);
 
             /* Delete the payload value of every dsf's decoded */
             UA_DataSetMessage *dsm = dataSetReader->bufferedMessage.nm->payload.dataSetPayload.dataSetMessages;
@@ -159,10 +156,7 @@ START_TEST(SubscribeMultipleMessagesRT) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     ck_assert(addMinimalPubSubConfiguration() == UA_STATUSCODE_GOOD);
     UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, connectionIdentifier);
-    if(connection != NULL) {
-        UA_StatusCode rv = connection->channel->regist(connection->channel, NULL, NULL);
-        ck_assert(rv == UA_STATUSCODE_GOOD);
-    }
+    ck_assert(connection);
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
@@ -360,10 +354,7 @@ START_TEST(SubscribeMultipleMessagesWithoutRT) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     ck_assert(addMinimalPubSubConfiguration() == UA_STATUSCODE_GOOD);
     UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, connectionIdentifier);
-    if(connection != NULL) {
-        UA_StatusCode rv = connection->channel->regist(connection->channel, NULL, NULL);
-        ck_assert(rv == UA_STATUSCODE_GOOD);
-    }
+    ck_assert(connection);
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
@@ -527,11 +518,6 @@ START_TEST(SubscribeMultipleMessagesWithoutRT) {
 START_TEST(SetupInvalidPubSubConfig) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     ck_assert(addMinimalPubSubConfiguration() == UA_STATUSCODE_GOOD);
-    UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, connectionIdentifier);
-    if(connection != NULL) {
-        UA_StatusCode rv = connection->channel->regist(connection->channel, NULL, NULL);
-        ck_assert(rv == UA_STATUSCODE_GOOD);
-    }
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");

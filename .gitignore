@@ -88,3 +88,9 @@ Pipfile.lock
 /bindings/lua/ldoc/*
 tags
 *.der
+
+# clangd cache
+.cache/
+
+# project local vim settings
+.vim/

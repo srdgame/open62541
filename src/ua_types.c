@@ -106,7 +106,7 @@ UA_String_fromChars(const char *src) {
     s.length = strlen(src);
     if(s.length > 0) {
         s.data = (u8*)UA_malloc(s.length);
-        if(!s.data) {
+        if(UA_UNLIKELY(!s.data)) {
             s.length = 0;
             return s;
         }
@@ -277,7 +277,7 @@ UA_ByteString_allocBuffer(UA_ByteString *bs, size_t length) {
     if(length == 0)
         return UA_STATUSCODE_GOOD;
     bs->data = (u8*)UA_malloc(length);
-    if(!bs->data)
+    if(UA_UNLIKELY(!bs->data))
         return UA_STATUSCODE_BADOUTOFMEMORY;
     bs->length = length;
     return UA_STATUSCODE_GOOD;
@@ -538,17 +538,65 @@ ExtensionObject_copy(UA_ExtensionObject const *src, UA_ExtensionObject *dst,
     return retval;
 }
 
+void
+UA_ExtensionObject_setValue(UA_ExtensionObject *eo,
+                            void * UA_RESTRICT p,
+                            const UA_DataType *type) {
+    UA_ExtensionObject_init(eo);
+    eo->content.decoded.data = p;
+    eo->content.decoded.type = type;
+    eo->encoding = UA_EXTENSIONOBJECT_DECODED;
+}
+
+void
+UA_ExtensionObject_setValueNoDelete(UA_ExtensionObject *eo,
+                                    void * UA_RESTRICT p,
+                                    const UA_DataType *type) {
+    UA_ExtensionObject_init(eo);
+    eo->content.decoded.data = p;
+    eo->content.decoded.type = type;
+    eo->encoding = UA_EXTENSIONOBJECT_DECODED_NODELETE;
+}
+
+UA_StatusCode
+UA_ExtensionObject_setValueCopy(UA_ExtensionObject *eo,
+                                void * UA_RESTRICT p,
+                                const UA_DataType *type) {
+    UA_ExtensionObject_init(eo);
+
+    /* Make a copy of the value */
+    void *val = UA_malloc(type->memSize);
+    if(UA_UNLIKELY(!val))
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    UA_StatusCode res = UA_copy(p, val, type);
+    if(UA_UNLIKELY(res != UA_STATUSCODE_GOOD)) {
+        UA_free(val);
+        return res;
+    }
+
+    /* Set the ExtensionObject */
+    eo->content.decoded.data = val;
+    eo->content.decoded.type = type;
+    eo->encoding = UA_EXTENSIONOBJECT_DECODED;
+    return UA_STATUSCODE_GOOD;
+}
+
 /* Variant */
 static void
 Variant_clear(UA_Variant *p, const UA_DataType *_) {
-    if(p->storageType != UA_VARIANT_DATA)
+    /* The content is "borrowed" */
+    if(p->storageType == UA_VARIANT_DATA_NODELETE)
         return;
+
+    /* Delete the value */
     if(p->type && p->data > UA_EMPTY_ARRAY_SENTINEL) {
         if(p->arrayLength == 0)
             p->arrayLength = 1;
         UA_Array_delete(p->data, p->arrayLength, p->type);
         p->data = NULL;
     }
+
+    /* Delete the array dimensions */
     if((void*)p->arrayDimensions > UA_EMPTY_ARRAY_SENTINEL)
         UA_free(p->arrayDimensions);
 }
@@ -584,13 +632,13 @@ UA_Variant_setScalar(UA_Variant *v, void * UA_RESTRICT p,
 }
 
 UA_StatusCode
-UA_Variant_setScalarCopy(UA_Variant *v, const void *p,
+UA_Variant_setScalarCopy(UA_Variant *v, const void * UA_RESTRICT p,
                          const UA_DataType *type) {
     void *n = UA_malloc(type->memSize);
-    if(!n)
+    if(UA_UNLIKELY(!n))
         return UA_STATUSCODE_BADOUTOFMEMORY;
     UA_StatusCode retval = UA_copy(p, n, type);
-    if(retval != UA_STATUSCODE_GOOD) {
+    if(UA_UNLIKELY(retval != UA_STATUSCODE_GOOD)) {
         UA_free(n);
         //cppcheck-suppress memleak
         return retval;
@@ -609,7 +657,7 @@ void UA_Variant_setArray(UA_Variant *v, void * UA_RESTRICT array,
 }
 
 UA_StatusCode
-UA_Variant_setArrayCopy(UA_Variant *v, const void *array,
+UA_Variant_setArrayCopy(UA_Variant *v, const void * UA_RESTRICT array,
                         size_t arraySize, const UA_DataType *type) {
     UA_Variant_init(v);
     UA_StatusCode retval = UA_Array_copy(array, arraySize, &v->data, type);
@@ -737,7 +785,7 @@ copySubString(const UA_String *src, UA_String *dst,
 }
 
 UA_StatusCode
-UA_Variant_copyRange(const UA_Variant *src, UA_Variant *dst,
+UA_Variant_copyRange(const UA_Variant *src, UA_Variant * UA_RESTRICT dst,
                      const UA_NumericRange range) {
     if(!src->type)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
@@ -917,7 +965,7 @@ UA_Variant_setRange(UA_Variant *v, void * UA_RESTRICT array,
 }
 
 UA_StatusCode
-UA_Variant_setRangeCopy(UA_Variant *v, const void *array,
+UA_Variant_setRangeCopy(UA_Variant *v, const void * UA_RESTRICT array,
                         size_t arraySize, const UA_NumericRange range) {
     return Variant_setRange(v, (void*)(uintptr_t)array,
                             arraySize, range, true);
@@ -975,8 +1023,9 @@ DiagnosticInfo_copy(UA_DiagnosticInfo const *src, UA_DiagnosticInfo *dst,
     if(src->hasAdditionalInfo)
        retval = UA_String_copy(&src->additionalInfo, &dst->additionalInfo);
     if(src->hasInnerDiagnosticInfo && src->innerDiagnosticInfo) {
-        dst->innerDiagnosticInfo = (UA_DiagnosticInfo*)UA_malloc(sizeof(UA_DiagnosticInfo));
-        if(dst->innerDiagnosticInfo) {
+        dst->innerDiagnosticInfo = (UA_DiagnosticInfo*)
+            UA_malloc(sizeof(UA_DiagnosticInfo));
+        if(UA_LIKELY(dst->innerDiagnosticInfo != NULL)) {
             retval |= DiagnosticInfo_copy(src->innerDiagnosticInfo,
                                           dst->innerDiagnosticInfo, NULL);
             dst->hasInnerDiagnosticInfo = true;
@@ -1104,11 +1153,26 @@ copyUnion(const void *src, void *dst, const UA_DataType *type) {
     const UA_DataType *typelists[2] = { UA_TYPES, &type[-type->typeIndex] };
     const UA_DataTypeMember *m = &type->members[selection-1];
     const UA_DataType *mt = &typelists[!m->namespaceZero][m->memberTypeIndex];
-    ptrs += UA_TYPES[UA_TYPES_UINT32].memSize;
-    ptrd += UA_TYPES[UA_TYPES_UINT32].memSize;
     ptrs += m->padding;
     ptrd += m->padding;
-    return UA_copy((const void *) ptrs, (void *) ptrd, mt);
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    if (m->isArray) {
+        size_t *dst_size = (size_t*)ptrd;
+        const size_t size = *((const size_t*)ptrs);
+        ptrs += sizeof(size_t);
+        ptrd += sizeof(size_t);
+        retval = UA_Array_copy(*(void* const*)ptrs, size, (void**)ptrd, mt);
+        if(retval == UA_STATUSCODE_GOOD)
+            *dst_size = size;
+        else
+            *dst_size = 0;
+    } else {
+        retval = copyJumpTable[mt->typeKind]((const void *)ptrs, (void *)ptrd, mt);
+    }
+
+    return retval;
 }
 
 static UA_StatusCode
@@ -1208,9 +1272,14 @@ clearUnion(void *p, const UA_DataType *type) {
     const UA_DataType *typelists[2] = { UA_TYPES, &type[-type->typeIndex] };
     const UA_DataTypeMember *m = &type->members[selection-1];
     const UA_DataType *mt = &typelists[!m->namespaceZero][m->memberTypeIndex];
-    ptr += UA_TYPES[UA_TYPES_UINT32].memSize;
     ptr += m->padding;
-    UA_clear((void *) ptr, mt);
+    if (m->isArray) {
+        size_t length = *(size_t *)ptr;
+        ptr += sizeof(size_t);
+        UA_Array_delete(*(void **)ptr, length, mt);
+    } else {
+        UA_clear((void *) ptr, mt);
+    }
 }
 
 static void nopClear(void *p, const UA_DataType *type) { }

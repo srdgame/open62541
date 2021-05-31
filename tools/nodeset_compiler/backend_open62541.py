@@ -8,6 +8,7 @@
 ###    Copyright 2014-2015 (c) TU-Dresden (Author: Chris Iatrou)
 ###    Copyright 2014-2017 (c) Fraunhofer IOSB (Author: Julius Pfrommer)
 ###    Copyright 2016-2017 (c) Stefan Profanter, fortiss GmbH
+###    Copyright 2021 (c) Wind River Systems, Inc.
 
 
 from __future__ import print_function
@@ -309,30 +310,24 @@ UA_StatusCode retVal = UA_STATUSCODE_GOOD;""" % (outfilebase))
     for arr in set(typesArray):
         if arr == "UA_TYPES":
             continue
+        writec("if(" + arr + "_COUNT > 0) {")
         writec("custom" + arr + ".next = UA_Server_getConfig(server)->customDataTypes;")
         writec("UA_Server_getConfig(server)->customDataTypes = &custom" + arr + ";\n")
+        writec("}")
 
     if functionNumber > 0:
-
-        # concatenate method calls with "&&" operator.
-        # The first method which does not return UA_STATUSCODE_GOOD (=0) will cause aborting
-        # the remaining calls and retVal will be set to that error code.
-        writec("bool dummy = (")
         for i in range(0, functionNumber):
-            writec("{concat}!(retVal = function_{outfilebase}_{idx}_begin(server, ns))".format(
-                outfilebase=outfilebase, idx=str(i), concat= "" if i == 0 else "&& "))
+            writec("if((retVal = function_{outfilebase}_{idx}_begin(server, ns)) != UA_STATUSCODE_GOOD) return retVal;".format(
+                outfilebase=outfilebase, idx=str(i)))
             if i in reftypes_functionNumbers:
-                writec("&& !(retVal = function_{outfilebase}_{idx}_finish(server, ns))".format(
+                writec("if((retVal = function_{outfilebase}_{idx}_finish(server, ns)) != UA_STATUSCODE_GOOD) return retVal;".format(
                     outfilebase=outfilebase, idx=str(i)))
 
         for i in reversed(range(0, functionNumber)):
             if i in reftypes_functionNumbers:
                 continue
-            writec("&& !(retVal = function_{outfilebase}_{idx}_finish(server, ns))".format(
+            writec("if((retVal = function_{outfilebase}_{idx}_finish(server, ns)) != UA_STATUSCODE_GOOD) return retVal;".format(
                 outfilebase=outfilebase, idx=str(i)))
-
-        # use (void)(dummy) to avoid unused variable error.
-        writec("); (void)(dummy);")
 
     writec("return retVal;\n}")
     outfileh.flush()

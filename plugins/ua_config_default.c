@@ -191,9 +191,7 @@ setDefaultConfig(UA_ServerConfig *conf) {
     /* conf->nodeLifecycle.destructor = NULL; */
     /* conf->nodeLifecycle.createOptionalChild = NULL; */
     /* conf->nodeLifecycle.generateChildNodeId = NULL; */
-
-    /* Relax constraints for the InformationModel */
-    conf->relaxEmptyValueConstraint = true; /* Allow empty values */
+    conf->modellingRulesOnInstances = UA_TRUE;
 
     /* Limits for SecureChannels */
     conf->maxSecureChannels = 40;
@@ -249,10 +247,6 @@ setDefaultConfig(UA_ServerConfig *conf) {
 #if UA_MULTITHREADING >= 100
     conf->maxAsyncOperationQueueSize = 0;
     conf->asyncOperationTimeout = 120000; /* Async Operation Timeout in ms (2 minutes) */
-#endif
-
-#if UA_MULTITHREADING >= 200
-    conf->nThreads = 1;
 #endif
 
     /* --> Finish setting the default static config <-- */
@@ -752,6 +746,12 @@ UA_ClientConfig_setDefault(UA_ClientConfig *config) {
        config->logger.context = NULL;
        config->logger.clear = UA_Log_Stdout_clear;
     }
+
+    if (config->sessionLocaleIdsSize > 0 && config->sessionLocaleIds) {
+        UA_Array_delete(config->sessionLocaleIds, config->sessionLocaleIdsSize, &UA_TYPES[UA_TYPES_LOCALEID]);
+    }
+    config->sessionLocaleIds = NULL;
+    config->sessionLocaleIds = 0;
 
     config->localConnectionConfig = UA_ConnectionConfig_default;
 

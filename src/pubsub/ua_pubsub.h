@@ -6,6 +6,7 @@
  * Copyright (c) 2019 Kalycito Infotech Private Limited
  * Copyright (c) 2020 Yannick Wallerer, Siemens AG
  * Copyright (c) 2020 Thomas Fischer, Siemens AG
+ * Copyright (c) 2021 Fraunhofer IOSB (Author: Jan Hermes)
  */
 
 #ifndef UA_PUBSUB_H_
@@ -60,6 +61,7 @@ UA_PublishedDataSet_clear(UA_Server *server, UA_PublishedDataSet *publishedDataS
 /**********************************************/
 //the connection config (public part of connection) object is defined in include/ua_plugin_pubsub.h
 typedef struct UA_PubSubConnection{
+    UA_PubSubComponentEnumType componentType;
     UA_PubSubConnectionConfig *config;
     //internal fields
     UA_PubSubChannel *channel;
@@ -70,6 +72,7 @@ typedef struct UA_PubSubConnection{
     size_t readerGroupsSize;
     TAILQ_ENTRY(UA_PubSubConnection) listEntry;
     UA_UInt16 configurationFreezeCounter;
+    UA_Boolean isRegistered; // Subscriber requires connection channel regist
     /* This flag is 'read only' and is set internally based on the PubSub state. */
     UA_Boolean configurationFrozen;
 } UA_PubSubConnection;
@@ -82,9 +85,15 @@ void
 UA_PubSubConnectionConfig_clear(UA_PubSubConnectionConfig *connectionConfig);
 void
 UA_PubSubConnection_clear(UA_Server *server, UA_PubSubConnection *connection);
+
 /* Register channel for given connectionIdentifier */
 UA_StatusCode
 UA_PubSubConnection_regist(UA_Server *server, UA_NodeId *connectionIdentifier);
+
+/* Process Network Message for a ReaderGroup. But we the ReaderGroup needs to be identified first. */
+UA_StatusCode
+UA_PubSubConnection_processNetworkMessage(UA_Server *server, UA_PubSubConnection *pConnection,
+                                          UA_NetworkMessage* pMsg);
 
 /**********************************************/
 /*              DataSetWriter                 */
@@ -98,6 +107,7 @@ typedef struct UA_DataSetWriterSample{
 #endif
 
 typedef struct UA_DataSetWriter{
+    UA_PubSubComponentEnumType componentType;
     UA_DataSetWriterConfig config;
     //internal fields
     LIST_ENTRY(UA_DataSetWriter) listEntry;
@@ -128,6 +138,7 @@ UA_DataSetWriter_setPubSubState(UA_Server *server, UA_PubSubState state, UA_Data
 /**********************************************/
 
 struct UA_WriterGroup{
+    UA_PubSubComponentEnumType componentType;
     UA_WriterGroupConfig config;
     //internal fields
     LIST_ENTRY(UA_WriterGroup) listEntry;
@@ -142,6 +153,12 @@ struct UA_WriterGroup{
     UA_UInt16 sequenceNumber; /* Increased after every succressuly sent message */
     /* This flag is 'read only' and is set internally based on the PubSub state. */
     UA_Boolean configurationFrozen;
+
+#ifdef UA_ENABLE_PUBSUB_ENCRYPTION
+    UA_UInt32 securityTokenId;
+    UA_UInt32 nonceSequenceNumber; /* To be part of the MessageNonce */
+    void *securityPolicyContext;
+#endif
 };
 
 UA_StatusCode
@@ -179,6 +196,7 @@ UA_DataSetField_findDSFbyId(UA_Server *server, UA_NodeId identifier);
 
 /* DataSetReader Type definition */
 typedef struct UA_DataSetReader {
+    UA_PubSubComponentEnumType componentType;
     UA_DataSetReaderConfig config;
     /* implementation defined fields */
     UA_NodeId identifier;
@@ -190,16 +208,28 @@ typedef struct UA_DataSetReader {
     /* This flag is 'read only' and is set internally based on the PubSub state. */
     UA_Boolean configurationFrozen;
     UA_NetworkMessageOffsetBuffer bufferedMessage;
+#ifdef UA_ENABLE_PUBSUB_MONITORING
+    /* MessageReceiveTimeout handling */
+    UA_ServerCallback msgRcvTimeoutTimerCallback;
+    UA_UInt64 msgRcvTimeoutTimerId;
+    UA_Boolean msgRcvTimeoutTimerRunning;
+#endif /* UA_ENABLE_PUBSUB_MONITORING */
 }UA_DataSetReader;
 
 /* Process Network Message using DataSetReader */
-void UA_Server_DataSetReader_process(UA_Server *server, UA_DataSetReader *dataSetReader, UA_DataSetMessage* dataSetMsg);
+void UA_DataSetReader_process(UA_Server *server, UA_DataSetReader *dataSetReader, UA_DataSetMessage* dataSetMsg);
 
 /* Copy the configuration of DataSetReader */
 UA_StatusCode UA_DataSetReaderConfig_copy(const UA_DataSetReaderConfig *src, UA_DataSetReaderConfig *dst);
 
+/* Clear the configuration of a DataSetReader */
+void UA_DataSetReaderConfig_clear(UA_DataSetReaderConfig *cfg);
+
 /* Copy the configuration of Target Variables */
 UA_StatusCode UA_TargetVariables_copy(const UA_TargetVariables *src, UA_TargetVariables *dst);
+
+/* Clear the Target Variables configuration */
+void UA_TargetVariables_clear(UA_TargetVariables *subscribedDataSetTarget);
 
 /* Copy the configuration of Field Target Variables */
 UA_StatusCode UA_FieldTargetVariable_copy(const UA_FieldTargetVariable *src,
@@ -208,12 +238,19 @@ UA_StatusCode UA_FieldTargetVariable_copy(const UA_FieldTargetVariable *src,
 UA_StatusCode
 UA_DataSetReader_setPubSubState(UA_Server *server, UA_PubSubState state, UA_DataSetReader *dataSetReader);
 
+#ifdef UA_ENABLE_PUBSUB_MONITORING
+/* DataSetReader MessageReceiveTimeout callback for generic PubSub component timeout handling */
+void
+UA_DataSetReader_handleMessageReceiveTimeout(UA_Server *server, void *dataSetReader);
+#endif /* UA_ENABLE_PUBSUB_MONITORING */
+
 /**********************************************/
 /*                ReaderGroup                 */
 /**********************************************/
 /* ReaderGroup Type Definition*/
 
 struct UA_ReaderGroup {
+    UA_PubSubComponentEnumType componentType;
     UA_ReaderGroupConfig config;
     UA_NodeId identifier;
     UA_NodeId linkedConnection;
@@ -226,15 +263,17 @@ struct UA_ReaderGroup {
     UA_PubSubState state;
     /* This flag is 'read only' and is set internally based on the PubSub state. */
     UA_Boolean configurationFrozen;
+
+#ifdef UA_ENABLE_PUBSUB_ENCRYPTION
+    UA_UInt32 securityTokenId;
+    UA_UInt32 nonceSequenceNumber; /* To be part of the MessageNonce */
+    void *securityPolicyContext;
+#endif
 };
 
 /* Copy configuration of ReaderGroup */
 UA_StatusCode
 UA_ReaderGroupConfig_copy(const UA_ReaderGroupConfig *src, UA_ReaderGroupConfig *dst);
-
-/* Process Network Message */
-UA_StatusCode
-UA_Server_processNetworkMessage(UA_Server *server, UA_NetworkMessage* pMsg, UA_PubSubConnection *pConnection);
 
 /* Prototypes for internal util functions - some functions maybe removed later
  *(currently moved from public to internal)*/
@@ -260,6 +299,35 @@ UA_StatusCode
 UA_ReaderGroup_addSubscribeCallback(UA_Server *server, UA_ReaderGroup *readerGroup);
 void
 UA_ReaderGroup_subscribeCallback(UA_Server *server, UA_ReaderGroup *readerGroup);
+
+/*********************************************************/
+/*               Reading Message handling                */
+/*********************************************************/
+
+#ifdef UA_ENABLE_PUBSUB_ENCRYPTION
+UA_StatusCode
+verifyAndDecrypt(const UA_Logger *logger, UA_ByteString *buffer,
+                 const size_t *currentPosition,
+                 const UA_NetworkMessage *currentNetworkMessage, UA_Boolean doValidate,
+                 UA_Boolean doDecrypt, void *channelContext,
+                 UA_PubSubSecurityPolicy *securityPolicy);
+
+UA_StatusCode
+verifyAndDecryptNetworkMessage(const UA_Logger *logger,
+                               UA_ByteString *buffer, size_t *currentPosition,
+                               UA_NetworkMessage *currentNetworkMessage,
+                               UA_ReaderGroup *readerGroup);
+#endif
+
+UA_StatusCode
+decodeNetworkMessage(const UA_Logger *logger,
+                   UA_ByteString *buffer, size_t *currentPosition,
+                   UA_NetworkMessage *currentNetworkMessage,
+                   UA_ReaderGroup *readerGroup);
+
+UA_StatusCode
+receiveBufferedNetworkMessage(UA_Server *server, UA_ReaderGroup *readerGroup,
+                              UA_PubSubConnection *connection);
 
 #endif /* UA_ENABLE_PUBSUB */
 

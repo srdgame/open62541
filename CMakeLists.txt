@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.0...3.12)
-project(open62541)
+if(UA_BUILD_FUZZING OR UA_BUILD_OSS_FUZZ OR UA_BUILD_FUZZING_CORPUS)
+    project(open62541) # We need to have C++ support configured for fuzzing
+else()
+    project(open62541 C) # Do not look for a C++ compiler
+endif()
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
@@ -16,7 +20,6 @@ include(GNUInstallDirs)
 # Set when installed via make install
 set(open62541_TOOLS_DIR ${PROJECT_SOURCE_DIR}/tools)
 set(open62541_NODESET_DIR ${PROJECT_SOURCE_DIR}/deps/ua-nodeset)
-set(XDP_LIBRARY "/usr/local/src/bpf-next/tools/lib/bpf/libbpf.a")
 
 include(macros_internal)
 include(macros_public)
@@ -128,7 +131,7 @@ endforeach(arch_ ${architectures})
 # Options
 option(BUILD_SHARED_LIBS "Enable building of shared libraries (dll/so)" OFF)
 set(UA_LOGLEVEL 300 CACHE STRING "Level at which logs shall be reported")
-set(UA_MULTITHREADING 0 CACHE STRING "Level of multithreading (0-99: No Multithreading, 100-199: Thread-Safe API, >=200: Internal Threads")
+set(UA_MULTITHREADING 0 CACHE STRING "Level of multithreading (0-99: No Multithreading, >=100: Thread-Safe API")
 option(UA_ENABLE_HISTORIZING "Enable basic support for historical access (client and server)" OFF)
 option(UA_ENABLE_METHODCALLS "Enable the Method service set" ON)
 option(UA_ENABLE_NODEMANAGEMENT "Enable dynamic addition and removal of nodes at runtime" ON)
@@ -142,7 +145,6 @@ option(UA_ENABLE_ENCRYPTION_OPENSSL "Enable encryption support (uses openssl)" O
 option(UA_ENABLE_ENCRYPTION_MBEDTLS "Enable encryption support (uses mbedTLS)" OFF)
 option(UA_ENABLE_PARSING "Utility functions that require parsing (e.g. NodeId expressions)" ON)
 option(UA_ENABLE_DA "Enable OPC UA DataAccess (Part 8) definitions" ON)
-option(UA_ENABLE_MICRO_EMB_DEV_PROFILE "Builds CTT Compliant Micro Embedded Device Server Profile" OFF)
 option(UA_ENABLE_WEBSOCKET_SERVER "Enable websocket support (uses libwebsockets)" OFF)
 
 # security provider 
@@ -179,12 +181,6 @@ if(MSVC AND UA_NAMESPACE_ZERO STREQUAL "FULL")
     # For the full NS0 we need a stack size of 8MB (as it is default on linux)
     # See https://github.com/open62541/open62541/issues/1326
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:8000000")
-endif()
-
-if(UA_ENABLE_MICRO_EMB_DEV_PROFILE)
-    if(NOT (UA_NAMESPACE_ZERO STREQUAL "FULL"))
-        message(FATAL_ERROR "CTT Compliant Micro Embedded Device Server Profile needs full namespace zero")
-    endif()
 endif()
 
 if(UA_BUILD_FUZZING OR UA_BUILD_OSS_FUZZ OR UA_BUILD_FUZZING_CORPUS)
@@ -254,38 +250,37 @@ mark_as_advanced(UA_FORCE_32BIT)
 option(UA_FORCE_CPP "Force compilation with a C++ compiler" OFF)
 mark_as_advanced(UA_FORCE_CPP)
 if(UA_FORCE_CPP)
+    enable_language(CXX)
     add_definitions(-D__STDC_CONSTANT_MACROS) # We need the UINT32_C define
 endif()
 
 #General PubSub setup
-option(UA_ENABLE_PUBSUB "Enable publish/subscribe" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB)
+option(UA_ENABLE_PUBSUB "Enable the PubSub protocol" OFF)
+
+option(UA_ENABLE_PUBSUB_ENCRYPTION "Enable encryption of the PubSub payload" OFF)
+mark_as_advanced(UA_ENABLE_PUBSUB_ENCRYPTION)
 
 option(UA_ENABLE_PUBSUB_INFORMATIONMODEL "Enable PubSub information model twin" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_INFORMATIONMODEL)
+
 option(UA_ENABLE_PUBSUB_INFORMATIONMODEL_METHODS "Enable PubSub informationmodel methods" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_INFORMATIONMODEL_METHODS)
+
 option(UA_ENABLE_PUBSUB_DELTAFRAMES "Enable sending of delta frames with only the changes" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_DELTAFRAMES)
+
 option(UA_ENABLE_PUBSUB_FILE_CONFIG "Enable loading PubSub Config from file extension" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_FILE_CONFIG) 
+mark_as_advanced(UA_ENABLE_PUBSUB_FILE_CONFIG)
+
+option(UA_ENABLE_PUBSUB_MONITORING "Enable monitoring of PubSub components (e.g. MessageReceiveTimeout)" OFF)
+mark_as_advanced(UA_ENABLE_PUBSUB_MONITORING)
+
+option(UA_ENABLE_PUBSUB_BUFMALLOC "Enable allocation with static memory buffer for time critical PubSub parts" OFF)
+mark_as_advanced(UA_ENABLE_PUBSUB_BUFMALLOC)
+
 #RT and Transport PubSub settings
 option(UA_ENABLE_PUBSUB_ETH_UADP "Enable publish/subscribe UADP over Ethernet" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_ETH_UADP)
-option(UA_ENABLE_PUBSUB_ETH_UADP_XDP "Enable Subscribe UADP over Ethernet using XDP" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_ETH_UADP_XDP)
-option(UA_ENABLE_PUBSUB_ETH_UADP_ETF "Use ETF implementation for the ETH_UADP publish" OFF)
-mark_as_advanced(UA_ENABLE_PUBSUB_ETH_UADP_ETF)
 
 if(UA_ENABLE_PUBSUB_ETH_UADP)
     if(NOT CMAKE_SYSTEM MATCHES "Linux")
     message(FATAL_ERROR "UADP over Ethernet is only available on Linux.")
-	endif()
-endif()
-
-if(UA_ENABLE_PUBSUB_ETH_UADP_XDP)
-    if(NOT CMAKE_SYSTEM MATCHES "Linux")
-        message(FATAL_ERROR "XDP is only available on Linux.")
     endif()
 endif()
 
@@ -310,12 +305,18 @@ if(UA_ENABLE_PUBSUB_FILE_CONFIG)
     endif()
 endif()
 
-if(UA_ENABLE_PUBSUB_ETH_UADP_ETF)
+if(UA_ENABLE_PUBSUB_MONITORING)
     if(NOT UA_ENABLE_PUBSUB)
-        message(FATAL_ERROR "ETF publish callback handling cannot be used with PubSub function disabled")
+        message(FATAL_ERROR "PubSub monitoring cannot be used with PubSub function disabled")
     endif()
-    if(NOT CMAKE_SYSTEM MATCHES "Linux")
-        message(FATAL_ERROR "ETF is only available on Linux.")
+endif()
+
+if(UA_ENABLE_PUBSUB_BUFMALLOC)
+    if(NOT UA_ENABLE_PUBSUB)
+        message(FATAL_ERROR "PubSub buffer allocation cannot be used with PubSub function disabled")
+    endif()
+    if(NOT UA_ENABLE_MALLOC_SINGLETON)
+        message(FATAL_ERROR "PubSub buffer allocation cannot be used without 'UA_ENABLE_MALLOC_SINGLETON' enabled")
     endif()
 endif()
 
@@ -332,6 +333,21 @@ if(UA_ENABLE_PUBSUB_MQTT)
     if(NOT UA_ENABLE_PUBSUB)
     message(FATAL_ERROR "Mqtt cannot be used with disabled PubSub function.")
     endif()
+endif()
+
+option(UA_ENABLE_MQTT_TLS "Enable TLS support for publish/subscribe with mqtt" OFF)
+mark_as_advanced(UA_ENABLE_MQTT_TLS)
+if(UA_ENABLE_MQTT_TLS)
+        if(NOT UA_ENABLE_PUBSUB_MQTT)
+            message(FATAL_ERROR "Mqtt with TLS cannot be used without UA_ENABLE_PUBSUB_MQTT.")
+        endif()
+        set(UA_ENABLE_MQTT_TLS_OPENSSL ON)
+endif()
+
+option(UA_ENABLE_MQTT_TLS_OPENSSL "Enable TLS support for publish/subscribe with mqtt (use OpenSSL)" OFF)
+mark_as_advanced(UA_ENABLE_MQTT_TLS_OPENSSL)
+if(UA_ENABLE_MQTT_TLS_OPENSSL)
+    set(UA_ENABLE_MQTT_TLS ON)
 endif()
 
 option(UA_ENABLE_STATUSCODE_DESCRIPTIONS "Enable conversion of StatusCode to human-readable error message" ON)
@@ -400,6 +416,13 @@ if(CMAKE_VERSION VERSION_GREATER 3.6)
     SET_PROPERTY(CACHE UA_ENABLE_STATIC_ANALYZER PROPERTY STRINGS "OFF" "MINIMAL" "REDUCED" "FULL")
 endif()
 
+option(UA_DEBUG_FILE_LINE_INFO "Enable file and line information as additional debugging output for error messages" OFF)
+mark_as_advanced(UA_DEBUG_FILE_LINE_INFO)
+
+if(CMAKE_BUILD_TYPE MATCHES DEBUG)
+    set(UA_DEBUG_FILE_LINE_INFO ON)
+endif()
+
 # Build Targets
 option(UA_BUILD_EXAMPLES "Build example servers and clients" OFF)
 option(UA_BUILD_TOOLS "Build OPC UA shell tools" OFF)
@@ -462,19 +485,19 @@ include(linting_build)
 
 list(APPEND open62541_LIBRARIES "")
 
-if(UA_ENABLE_ENCRYPTION)
-    if(UA_ENABLE_ENCRYPTION_OPENSSL)
-        # use the OpenSSL encryption library
-        # https://cmake.org/cmake/help/v3.0/module/FindOpenSSL.html
-        find_package(OpenSSL REQUIRED)
-        list(APPEND open62541_LIBRARIES ${OPENSSL_LIBRARIES})
-    else()
-        # The recommended way is to install mbedtls via the OS package manager. If
-        # that is not possible, manually compile mbedTLS and set the cmake variables
-        # defined in /tools/cmake/FindMbedTLS.cmake.
-        find_package(MbedTLS REQUIRED)
-        list(APPEND open62541_LIBRARIES ${MBEDTLS_LIBRARIES})
-    endif()
+if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_MQTT_TLS_OPENSSL)
+    # use the OpenSSL encryption library
+    # https://cmake.org/cmake/help/v3.0/module/FindOpenSSL.html
+    find_package(OpenSSL REQUIRED)
+    list(APPEND open62541_LIBRARIES ${OPENSSL_LIBRARIES})
+endif ()
+
+if(UA_ENABLE_ENCRYPTION_MBEDTLS)
+    # The recommended way is to install mbedtls via the OS package manager. If
+    # that is not possible, manually compile mbedTLS and set the cmake variables
+    # defined in /tools/cmake/FindMbedTLS.cmake.
+    find_package(MbedTLS REQUIRED)
+    list(APPEND open62541_LIBRARIES ${MBEDTLS_LIBRARIES})
 endif()
 
 if(UA_ENABLE_WEBSOCKET_SERVER)
@@ -568,7 +591,7 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
 
         # IPO requires too much memory for unit tests
         # GCC docu recommends to compile all files with the same options, therefore ignore it completely
-        if(NOT UA_BUILD_UNIT_TESTS)
+        if(NOT UA_BUILD_UNIT_TESTS AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
             # needed to check if IPO is supported (check needs cmake > 3.9)
             if("${CMAKE_VERSION}" VERSION_GREATER 3.9)
                 cmake_policy(SET CMP0069 NEW) # needed as long as required cmake < 3.9
@@ -598,7 +621,7 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
             # Add default sanitizer settings when using clang and Debug build.
             # This allows e.g. CLion to find memory locations for SegFaults
             message(STATUS "Sanitizer enabled")
-            set(SANITIZER_FLAGS "-g -fno-omit-frame-pointer -gline-tables-only -fsanitize=address -fsanitize-address-use-after-scope -fsanitize-coverage=trace-cmp -fsanitize=leak -fsanitize=undefined")
+            set(SANITIZER_FLAGS "-g -fno-omit-frame-pointer -gline-tables-only -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=leak -fsanitize=undefined")
             if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
                 set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize-coverage=trace-pc-guard")
             endif()
@@ -607,9 +630,12 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
         endif()
     endif()
 
-    if(UA_ENABLE_HARDENING AND ((CMAKE_BUILD_TYPE STREQUAL "Release") OR (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")))
-        check_add_cc_flag("-D_FORTIFY_SOURCE=2") # run-time buffer overflow detection (needs at least -O1)
+    if (NOT MINGW)
+        if(UA_ENABLE_HARDENING AND ((CMAKE_BUILD_TYPE STREQUAL "Release") OR (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")))
+            check_add_cc_flag("-D_FORTIFY_SOURCE=2") # run-time buffer overflow detection (needs at least -O1)
+        endif()
     endif()
+
 
     # Strip release builds
     if(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel" OR CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -676,7 +702,12 @@ if(UA_ENABLE_DISCOVERY_MULTICAST)
     set(MDNSD_LOGLEVEL 300 CACHE STRING "Level at which logs shall be reported" FORCE)
     # create a "fake" empty library to generate the export header macros
     add_library(libmdnsd ${PROJECT_SOURCE_DIR}/deps/mdnsd/libmdnsd/mdnsd.h)
-    set_property(TARGET libmdnsd PROPERTY LINKER_LANGUAGE CXX)
+    if (UA_FORCE_CPP)
+        set_property(TARGET libmdnsd PROPERTY LINKER_LANGUAGE CXX)
+    else()
+        set_property(TARGET libmdnsd PROPERTY LINKER_LANGUAGE C)
+    endif()
+    set_property(TARGET libmdnsd PROPERTY DEFINE_SYMBOL "MDNSD_DYNAMIC_LINKING_EXPORT")
     configure_file("deps/mdnsd/libmdnsd/mdnsd_config_extra.in"
                    "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config_extra")
     file(READ "${PROJECT_BINARY_DIR}/src_generated/mdnsd_config_extra" MDNSD_CONFIG_EXTRA)
@@ -724,10 +755,11 @@ set(exported_headers ${exported_headers}
                      ${PROJECT_SOURCE_DIR}/include/open62541/plugin/securitypolicy.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/plugin/pubsub.h
                      ${PROJECT_SOURCE_DIR}/deps/ziptree.h
+                     ${PROJECT_SOURCE_DIR}/deps/aa_tree.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/plugin/nodestore.h
                      ${historizing_exported_headers}
-                     ${PROJECT_SOURCE_DIR}/include/open62541/server.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/server_pubsub.h
+                     ${PROJECT_SOURCE_DIR}/include/open62541/server.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/client.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/client_highlevel.h
                      ${PROJECT_SOURCE_DIR}/include/open62541/client_subscriptions.h
@@ -806,6 +838,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/libc_time.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
                 ${PROJECT_SOURCE_DIR}/deps/base64.c
+                ${PROJECT_SOURCE_DIR}/deps/aa_tree.c
                 
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_config.c)
 
@@ -843,8 +876,11 @@ if(UA_ENABLE_PARSING)
     list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types_lex.c)
 endif()
 
-if(UA_ENABLE_ENCRYPTION_MBEDTLS)
-list(APPEND default_plugin_sources
+# Always include encryption plugins into the amalgamation
+# Use guards in the files to ensure that UA_ENABLE_ENCRYPTON_MBEDTLS and UA_ENABLE_ENCRYPTION_OPENSSL are honored.
+
+if(UA_ENABLE_ENCRYPTION_MBEDTLS OR UA_ENABLE_AMALGAMATION)
+list(INSERT default_plugin_sources 0
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/securitypolicy_mbedtls_common.h
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/securitypolicy_mbedtls_common.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_basic128rsa15.c
@@ -852,10 +888,15 @@ list(APPEND default_plugin_sources
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_basic256sha256.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_aes128sha256rsaoaep.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_pki_mbedtls.c)
+   if(UA_ENABLE_PUBSUB_ENCRYPTION)
+     list(INSERT default_plugin_sources 1
+       ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/securitypolicy_pubsub_aes128ctr.c
+       ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/securitypolicy_pubsub_aes256ctr.c)
+  endif()
 endif()
 
-if(UA_ENABLE_ENCRYPTION_OPENSSL)
-list(APPEND default_plugin_sources
+if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_AMALGAMATION)
+list(INSERT default_plugin_sources 0
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/securitypolicy_openssl_common.h
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/securitypolicy_openssl_common.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_basic128rsa15.c
@@ -889,19 +930,14 @@ endif()
 if(UA_ENABLE_PUBSUB)
     list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/pubsub_udp.h)
     list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_pubsub_udp.c)
-    if(UA_ENABLE_PUBSUB_ETH_UADP_ETF)
-        list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_pubsub_ethernet_etf.c)
-    endif()
     if(UA_ENABLE_PUBSUB_ETH_UADP)
         list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/pubsub_ethernet.h)
         list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_pubsub_ethernet.c)
-    endif()
-    if(UA_ENABLE_PUBSUB_ETH_UADP_XDP)
-        if(EXISTS "${XDP_LIBRARY}")
-            list(APPEND open62541_LIBRARIES ${XDP_LIBRARY})
-            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_pubsub_ethernet_xdp.c)
+        find_library(LIB_BPF bpf)
+        if(LIB_BPF)
+            list(APPEND open62541_LIBRARIES bpf)
         else()
-            MESSAGE(WARNING "samples in bpf-next directory were not built. Build the bpf-next to use XDP")
+            message("bpf library not found. XDP functionalities will not be available.")
         endif()
     endif()
     if(UA_ENABLE_PUBSUB_MQTT)
@@ -917,6 +953,13 @@ if(UA_ENABLE_PUBSUB)
             list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.h)
             list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.c)
         endif()
+    endif()
+    if(UA_ENABLE_MALLOC_SINGLETON AND UA_ENABLE_PUBSUB_BUFMALLOC)
+        list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_bufmalloc.c)
+        list(APPEND internal_headers ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_bufmalloc.h)
+    endif()
+    if(UA_ENABLE_PUBSUB_ENCRYPTION)
+        list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_security.c)
     endif()
 endif()
 
@@ -941,7 +984,7 @@ if(UA_ENABLE_SUBSCRIPTIONS)
                             ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_monitoreditem.c
                             ${PROJECT_SOURCE_DIR}/src/server/ua_subscription_datachange.c)
     if(UA_ENABLE_SUBSCRIPTIONS_EVENTS)
-        if(UA_NAMESPACE_ZERO STREQUAL "MINAML")
+        if(UA_NAMESPACE_ZERO STREQUAL "MINIMAL")
             message(FATAL_ERROR "Events require at least the reduced Namespace Zero")
         endif()
         list(APPEND lib_sources
@@ -955,7 +998,6 @@ endif()
 
 if(UA_DEBUG_DUMP_PKGS)
     list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/plugins/ua_debug_dump_pkgs.c)
-    list(APPEND lib_sources ${PROJECT_SOURCE_DIR}/tests/testing-plugins/testing_networklayers.c)
 endif()
 
 if(UA_ENABLE_DISCOVERY_MULTICAST)
@@ -996,7 +1038,6 @@ if(UA_NAMESPACE_ZERO STREQUAL "FULL")
     if(NOT EXISTS "${UA_FILE_NS0}")
         message(FATAL_ERROR "File ${UA_FILE_NS0} not found. You probably need to initialize the git submodule for deps/ua-nodeset or set open62541_NODESET_DIR.")
     endif()
-
 
     set(UA_FILE_NODEIDS ${open62541_NODESET_DIR}/Schema/NodeIds.csv)
     set(UA_FILE_STATUSCODES ${open62541_NODESET_DIR}/Schema/StatusCode.csv)
@@ -1163,7 +1204,7 @@ if(UA_ENABLE_AMALGAMATION)
     if(UA_ENABLE_ENCRYPTION_MBEDTLS)
         target_include_directories(open62541-object PRIVATE ${MBEDTLS_INCLUDE_DIRS})
     endif()
-    if(UA_ENABLE_ENCRYPTION_OPENSSL)
+    if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_MQTT_TLS_OPENSSL)
         target_include_directories(open62541-object PRIVATE ${OPENSSL_INCLUDE_DIR})
     endif()
 
@@ -1248,7 +1289,7 @@ else()
     if(UA_ENABLE_ENCRYPTION_MBEDTLS)
         include_directories_private(${MBEDTLS_INCLUDE_DIRS})
     endif()
-    if(UA_ENABLE_ENCRYPTION_OPENSSL)
+    if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_MQTT_TLS_OPENSSL)
         include_directories_private(${OPENSSL_INCLUDE_DIR})
     endif()
 
@@ -1514,7 +1555,7 @@ if(NOT UA_ENABLE_AMALGAMATION)
         string(REPLACE ${BASE_PATH_DEPS} "" file ${file})
 
         get_filename_component( dir ${file} DIRECTORY )
-        if(${full_path} MATCHES "deps")
+        if(${full_path} MATCHES ${BASE_PATH_DEPS})
             install( FILES ${full_path} DESTINATION include${dir} )
         else()
             install( FILES ${full_path} DESTINATION include/open62541${dir} )
