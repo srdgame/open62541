@@ -130,9 +130,9 @@ void reg_opcua_types(sol::table& module) {
 			return UA_NodeId_equal(&left.typeId, &right.typeId);
 		},
 		"typeId", &UA_DataType::typeId,
+		/*
 		"memSize", &UA_DataType::memSize,
 		"typeIndex", &UA_DataType::typeIndex,
-		/*
 		"typeKind", &UA_DataType::typeKind,
 		"pointerFree", &UA_DataType::pointerFree,
 		"overlayable", &UA_DataType::overlayable,
