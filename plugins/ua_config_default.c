@@ -41,15 +41,17 @@ UA_DURATIONRANGE(UA_Duration min, UA_Duration max) {
     return range;
 }
 
+static UA_StatusCode
+setDefaultConfig(UA_ServerConfig *conf);
+
 UA_Server *
 UA_Server_new() {
     UA_ServerConfig config;
     memset(&config, 0, sizeof(UA_ServerConfig));
-    /* Set a default logger and NodeStore for the initialization */
-    config.logger = UA_Log_Stdout_;
-    if(UA_STATUSCODE_GOOD != UA_Nodestore_HashMap(&config.nodestore)) {
+
+    UA_StatusCode res = setDefaultConfig(&config);
+    if(res != UA_STATUSCODE_GOOD)
         return NULL;
-    }
 
     return UA_Server_newWithConfig(&config);
 }
@@ -125,13 +127,25 @@ setDefaultConfig(UA_ServerConfig *conf) {
     if(!conf)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
+    /* NodeStore */
     if(conf->nodestore.context == NULL)
         UA_Nodestore_HashMap(&conf->nodestore);
 
-    /* --> Start setting the default static config <-- */
-    /* Allow user to set his own logger */
+    /* Logging */
     if(!conf->logger.log)
         conf->logger = UA_Log_Stdout_;
+
+    /* EventLoop */
+    if(conf->eventLoop == NULL) {
+        conf->eventLoop = UA_EventLoop_new_POSIX(&conf->logger);
+        conf->externalEventLoop = false;
+    }
+
+    /* Eventsources */
+    conf->connectionManagersSize = 0;
+    /* conf->connectionManagers; */
+
+   /* --> Start setting the default static config <-- */
 
     conf->shutdownDelay = 0.0;
 
@@ -320,6 +334,18 @@ UA_ServerConfig_addNetworkLayerTCP(UA_ServerConfig *conf, UA_UInt16 portNumber,
         return UA_STATUSCODE_BADOUTOFMEMORY;
     conf->networkLayersSize++;
 
+    /* TCP Eventsource */
+
+    UA_ConnectionManager *tcpCM = UA_ConnectionManager_new_POSIX_TCP(UA_STRING("tcpCM"));
+    conf->connectionManagers[conf->connectionManagersSize] = tcpCM;
+    UA_UInt16 port = portNumber;
+    UA_Variant portVar;
+    UA_Variant_setScalar(&portVar, &port, &UA_TYPES[UA_TYPES_UINT16]);
+    UA_KeyValueMap_set(&tcpCM->eventSource.params, &tcpCM->eventSource.paramsSize, UA_QUALIFIEDNAME(0, "listen-port"), &portVar);
+    conf->connectionManagersSize++;
+
+    conf->eventLoop->registerEventSource(conf->eventLoop, (UA_EventSource *) tcpCM);
+
     return UA_STATUSCODE_GOOD;
 }
 
@@ -456,9 +482,9 @@ UA_ServerConfig_setMinimalCustomBuffer(UA_ServerConfig *config, UA_UInt16 portNu
     }
 
     /* Initialize the Access Control plugin */
-    retval = UA_AccessControl_default(config, true,
-                &config->securityPolicies[config->securityPoliciesSize-1].policyUri,
-                usernamePasswordsSize, usernamePasswords);
+    retval = UA_AccessControl_default(config, true, NULL,
+                                      &config->securityPolicies[config->securityPoliciesSize-1].policyUri,
+                                      usernamePasswordsSize, usernamePasswords);
     if(retval != UA_STATUSCODE_GOOD) {
         UA_ServerConfig_clean(config);
         return retval;
@@ -704,7 +730,12 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
 
-    retval = UA_AccessControl_default(conf, true,
+    UA_CertificateVerification accessControlVerification;
+    retval = UA_CertificateVerification_Trustlist(&accessControlVerification,
+                                                  trustList, trustListSize,
+                                                  issuerList, issuerListSize,
+                                                  revocationList, revocationListSize);
+    retval |= UA_AccessControl_default(conf, true, &accessControlVerification,
                 &conf->securityPolicies[conf->securityPoliciesSize-1].policyUri,
                 usernamePasswordsSize, usernamePasswords);
     if(retval != UA_STATUSCODE_GOOD) {
@@ -745,6 +776,12 @@ UA_ClientConfig_setDefault(UA_ClientConfig *config) {
        config->logger.log = UA_Log_Stdout_log;
        config->logger.context = NULL;
        config->logger.clear = UA_Log_Stdout_clear;
+    }
+
+    /* EventLoop */
+    if(config->eventLoop == NULL) {
+        config->eventLoop = UA_EventLoop_new_POSIX(&config->logger);
+        config->externalEventLoop = false;
     }
 
     if (config->sessionLocaleIdsSize > 0 && config->sessionLocaleIds) {

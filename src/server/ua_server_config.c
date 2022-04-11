@@ -28,6 +28,24 @@ UA_ServerConfig_clean(UA_ServerConfig *config) {
 
     /* Custom DataTypes */
     /* nothing to do */
+    for (size_t i = 0; i < config->connectionManagersSize; i++) {
+        UA_ConnectionManager* cm = config->connectionManagers[i];
+        UA_free(cm->initialConnectionContext);
+    }
+
+    /* Stop and delete the EventLoop */
+    UA_EventLoop *el = config->eventLoop;
+    if(el && !config->externalEventLoop) {
+        if(el->state != UA_EVENTLOOPSTATE_FRESH &&
+           el->state != UA_EVENTLOOPSTATE_STOPPED) {
+            el->stop(el);
+            while(el->state != UA_EVENTLOOPSTATE_STOPPED) {
+                el->run(el, 100);
+            }
+        }
+        el->free(el);
+        config->eventLoop = NULL;
+    }
 
     /* Networking */
     for(size_t i = 0; i < config->networkLayersSize; ++i)

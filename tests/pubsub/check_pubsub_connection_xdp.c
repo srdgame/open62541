@@ -7,10 +7,10 @@
 
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
-#include <ua_server_internal.h>
-#include <open62541/types_generated_encoding_binary.h>
 #include <open62541/types_generated.h>
 #include <open62541/plugin/pubsub_ethernet.h>
+
+#include "ua_server_internal.h"
 #include "ua_pubsub.h"
 
 #include <linux/if_packet.h>
@@ -38,10 +38,7 @@ static void setup(void) {
     UA_ServerConfig *config = UA_Server_getConfig(server);
     UA_ServerConfig_setDefault(config);
 
-    config->pubsubTransportLayers = (UA_PubSubTransportLayer *)
-        UA_malloc(sizeof(UA_PubSubTransportLayer));
-    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerEthernet();
-    config->pubsubTransportLayersSize++;
+    UA_ServerConfig_addPubSubTransportLayer(config, UA_PubSubTransportLayerEthernet());
     UA_Server_run_startup(server);
 }
 
@@ -277,7 +274,8 @@ START_TEST(GetMaximalConnectionConfigurationAndCompareValues){
     ck_assert(UA_String_equal(&connectionConfig.name, &connectionConf.name) == UA_TRUE);
     ck_assert(UA_String_equal(&connectionConfig.transportProfileUri, &connectionConf.transportProfileUri) == UA_TRUE);
     UA_NetworkAddressUrlDataType networkAddressUrlDataCopy = *((UA_NetworkAddressUrlDataType *)connectionConfig.address.data);
-    ck_assert(UA_NetworkAddressUrlDataType_calcSizeBinary(&networkAddressUrlDataCopy) == UA_NetworkAddressUrlDataType_calcSizeBinary(&networkAddressUrlData));
+    ck_assert(UA_calcSizeBinary(&networkAddressUrlDataCopy, &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE]) ==
+              UA_calcSizeBinary(&networkAddressUrlData, &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE]));
     for(size_t i = 0; i < connectionConfig.connectionPropertiesSize; i++){
         ck_assert(UA_String_equal(&connectionConfig.connectionProperties[i].key.name, &connectionConf.connectionProperties[i].key.name) == UA_TRUE);
         ck_assert(UA_Variant_calcSizeBinary(&connectionConfig.connectionProperties[i].value) == UA_Variant_calcSizeBinary(&connectionConf.connectionProperties[i].value));

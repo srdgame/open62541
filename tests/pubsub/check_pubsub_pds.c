@@ -9,8 +9,6 @@
 #include <open62541/server_config_default.h>
 #include <open62541/server_pubsub.h>
 
-#include "open62541/types_generated_encoding_binary.h"
-
 #include "ua_server_internal.h"
 
 #include <check.h>
@@ -40,6 +38,7 @@ START_TEST(AddPDSWithMinimalValidConfiguration){
     ck_assert_int_eq(server->pubSubManager.publishedDataSetsSize, 1);
     ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
     UA_NodeId newPDSNodeID;
+    pdsConfig.name = UA_STRING("TEST PDS 2");
     retVal |= UA_Server_addPublishedDataSet(server, &pdsConfig, &newPDSNodeID).addResult;
     ck_assert_int_eq(server->pubSubManager.publishedDataSetsSize, 2);
     ck_assert_int_eq(newPDSNodeID.identifierType, UA_NODEIDTYPE_NUMERIC);

@@ -194,8 +194,17 @@ deleteNodeMapEntry(UA_NodeMapEntry *entry) {
 
 static void
 cleanupNodeMapEntry(UA_NodeMapEntry *entry) {
-    if(entry->deleted && entry->refCount == 0)
+    if(entry->refCount > 0)
+        return;
+    if(entry->deleted) {
         deleteNodeMapEntry(entry);
+        return;
+    }
+    for(size_t i = 0; i < entry->node.head.referencesSize; i++) {
+        UA_NodeReferenceKind *rk = &entry->node.head.references[i];
+        if(rk->targetsSize > 16 && !rk->hasRefTree)
+            UA_NodeReferenceKind_switch(rk);
+    }
 }
 
 static UA_NodeMapSlot *
@@ -245,13 +254,27 @@ UA_NodeMap_deleteNode(void *context, UA_Node *node) {
 }
 
 static const UA_Node *
-UA_NodeMap_getNode(void *context, const UA_NodeId *nodeid) {
+UA_NodeMap_getNode(void *context, const UA_NodeId *nodeid,
+                   UA_UInt32 attributeMask,
+                   UA_ReferenceTypeSet references,
+                   UA_BrowseDirection referenceDirections) {
     UA_NodeMap *ns = (UA_NodeMap*)context;
     UA_NodeMapSlot *slot = findOccupiedSlot(ns, nodeid);
     if(!slot)
         return NULL;
     ++slot->entry->refCount;
     return &slot->entry->node;
+}
+
+static const UA_Node *
+UA_NodeMap_getNodeFromPtr(void *context, UA_NodePointer ptr,
+                          UA_UInt32 attributeMask,
+                          UA_ReferenceTypeSet references,
+                          UA_BrowseDirection referenceDirections) {
+    if(!UA_NodePointer_isLocal(ptr))
+        return NULL;
+    UA_NodeId id = UA_NodePointer_toNodeId(ptr);
+    return UA_NodeMap_getNode(context, &id, attributeMask, references, referenceDirections);
 }
 
 static void
@@ -346,6 +369,13 @@ UA_NodeMap_insertNode(void *context, UA_Node *node,
             identifier += increase;
             if(identifier >= size)
                 identifier -= size;
+#if SIZE_MAX <= UA_UINT32_MAX
+            /* The compressed "immediate" representation of nodes does not
+             * support the full range on 32bit systems. Generate smaller
+             * identifiers as they can be stored more compactly. */
+            if(identifier >= (0x01 << 24))
+                identifier = identifier % (0x01 << 24);
+#endif
         } while((UA_UInt32)identifier != startId);
     } else {
         slot = findFreeSlot(ns, &node->head.nodeId);
@@ -426,7 +456,7 @@ UA_NodeMap_replaceNode(void *context, UA_Node *node) {
 static const UA_NodeId *
 UA_NodeMap_getReferenceTypeId(void *nsCtx, UA_Byte refTypeIndex) {
     UA_NodeMap *ns = (UA_NodeMap*)nsCtx;
-    if(refTypeIndex > ns->referenceTypeCounter)
+    if(refTypeIndex >= ns->referenceTypeCounter)
         return NULL;
     return &ns->referenceTypeIds[refTypeIndex];
 }
@@ -497,6 +527,7 @@ UA_Nodestore_HashMap(UA_Nodestore *ns) {
     ns->newNode = UA_NodeMap_newNode;
     ns->deleteNode = UA_NodeMap_deleteNode;
     ns->getNode = UA_NodeMap_getNode;
+    ns->getNodeFromPtr = UA_NodeMap_getNodeFromPtr;
     ns->releaseNode = UA_NodeMap_releaseNode;
     ns->getNodeCopy = UA_NodeMap_getNodeCopy;
     ns->insertNode = UA_NodeMap_insertNode;

@@ -24,8 +24,8 @@ _UA_BEGIN_DECLS
  * The logger plugin is stateful and can point to custom data. So it is possible
  * to keep open file handlers in the logger context.
  *
- * Every log-message consists of a log-level, a log-category and a string
- * message content. The timestamp of the log-message is created within the
+ * Every log message consists of a log level, a log category and a string
+ * message content. The timestamp of the log message is created within the
  * logger. */
 
 typedef enum {
@@ -37,6 +37,8 @@ typedef enum {
     UA_LOGLEVEL_FATAL
 } UA_LogLevel;
 
+#define UA_LOGCATEGORIES 8
+
 typedef enum {
     UA_LOGCATEGORY_NETWORK = 0,
     UA_LOGCATEGORY_SECURECHANNEL,
@@ -44,13 +46,14 @@ typedef enum {
     UA_LOGCATEGORY_SERVER,
     UA_LOGCATEGORY_CLIENT,
     UA_LOGCATEGORY_USERLAND,
-    UA_LOGCATEGORY_SECURITYPOLICY
+    UA_LOGCATEGORY_SECURITYPOLICY,
+    UA_LOGCATEGORY_EVENTLOOP
 } UA_LogCategory;
 
 typedef struct {
     /* Log a message. The message string and following varargs are formatted
      * according to the rules of the printf command. Use the convenience macros
-     * below that take the minimum log-level defined in ua_config.h into
+     * below that take the minimum log level defined in ua_config.h into
      * account. */
     void (*log)(void *logContext, UA_LogLevel level, UA_LogCategory category,
                 const char *msg, va_list args);

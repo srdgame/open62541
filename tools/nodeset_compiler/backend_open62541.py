@@ -72,7 +72,7 @@ def sortNodes(nodeset):
         L.append(u)
         del R[u.id]
 
-        for ref in u.references:
+        for ref in sorted(u.references, key=lambda r: str(r.target)):
             if not ref.referenceType in relevant_refs:
                 continue
             if nodeset.nodes[ref.target].hidden:
@@ -90,7 +90,7 @@ def sortNodes(nodeset):
         L.append(u)
         del R[u.id]
 
-        for ref in u.references:
+        for ref in sorted(u.references, key=lambda r: str(r.target)):
             if not ref.referenceType in relevant_refs:
                 continue
             if nodeset.nodes[ref.target].hidden:
@@ -238,7 +238,7 @@ _UA_END_DECLS
                     writec("\n".join(code_global))
                     writec("\n")
                 writec("\nstatic UA_StatusCode function_" + outfilebase + "_" + str(functionNumber) + "_begin(UA_Server *server, UA_UInt16* ns) {")
-                if isinstance(node, MethodNode):
+                if isinstance(node, MethodNode) or isinstance(node.parent, MethodNode):
                     writec("#ifdef UA_ENABLE_METHODCALLS")
                 writec(code)
 
@@ -259,7 +259,7 @@ _UA_END_DECLS
 
         writec("return retVal;")
 
-        if isinstance(node, MethodNode):
+        if isinstance(node, MethodNode) or isinstance(node.parent, MethodNode):
             writec("#else")
             writec("return UA_STATUSCODE_GOOD;")
             writec("#endif /* UA_ENABLE_METHODCALLS */")
@@ -267,10 +267,10 @@ _UA_END_DECLS
 
         writec("\nstatic UA_StatusCode function_" + outfilebase + "_" + str(functionNumber) + "_finish(UA_Server *server, UA_UInt16* ns) {")
 
-        if isinstance(node, MethodNode):
+        if isinstance(node, MethodNode) or isinstance(node.parent, MethodNode):
             writec("#ifdef UA_ENABLE_METHODCALLS")
         writec("return " + generateNodeCode_finish(node))
-        if isinstance(node, MethodNode):
+        if isinstance(node, MethodNode) or isinstance(node.parent, MethodNode):
             writec("#else")
             writec("return UA_STATUSCODE_GOOD;")
             writec("#endif /* UA_ENABLE_METHODCALLS */")

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <open62541/client.h>
+#include <open62541/client_highlevel_async.h>
 #include <open62541/client_config_default.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
@@ -485,7 +486,7 @@ START_TEST(Client_subscription_modifyMonitoredItem) {
     ck_assert_uint_eq(createResponse.resultsSize, 1);
     ck_assert_uint_eq(createResponse.results[0].statusCode, UA_STATUSCODE_GOOD);
     newMonitoredItemIds[0] = createResponse.results[0].monitoredItemId;
-    UA_CreateMonitoredItemsResponse_deleteMembers(&createResponse);
+    UA_CreateMonitoredItemsResponse_clear(&createResponse);
 
     UA_fakeSleep((UA_UInt32)publishingInterval + 1);
 
@@ -520,7 +521,7 @@ START_TEST(Client_subscription_modifyMonitoredItem) {
         UA_Client_MonitoredItems_modify(client, modifyRequest);
     ck_assert_uint_eq(modifyResponse.resultsSize, 1);
     ck_assert_uint_eq(modifyResponse.results[0].statusCode, UA_STATUSCODE_GOOD);
-    UA_ModifyMonitoredItemsResponse_deleteMembers(&modifyResponse);
+    UA_ModifyMonitoredItemsResponse_clear(&modifyResponse);
 
     /* Sleep longer than the publishing interval */
     UA_fakeSleep((UA_UInt32)publishingInterval + 1);
@@ -546,7 +547,7 @@ START_TEST(Client_subscription_modifyMonitoredItem) {
     modifyResponse = UA_Client_MonitoredItems_modify(client, modifyRequest);
     ck_assert_uint_eq(modifyResponse.resultsSize, 1);
     ck_assert_uint_eq(modifyResponse.results[0].statusCode, UA_STATUSCODE_GOOD);
-    UA_ModifyMonitoredItemsResponse_deleteMembers(&modifyResponse);
+    UA_ModifyMonitoredItemsResponse_clear(&modifyResponse);
 
     /* Sleep longer than the publishing interval */
     UA_fakeSleep((UA_UInt32)publishingInterval + 1);
@@ -583,7 +584,7 @@ START_TEST(Client_subscription_modifyMonitoredItem) {
 
     ck_assert_uint_eq(deleteResponse.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
     ck_assert_uint_eq(deleteResponse.resultsSize, 1);
-    UA_DeleteMonitoredItemsResponse_deleteMembers(&deleteResponse);
+    UA_DeleteMonitoredItemsResponse_clear(&deleteResponse);
 
     retval = UA_Client_Subscriptions_deleteSingle(client, subId);
     ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
@@ -790,6 +791,70 @@ START_TEST(Client_subscription_keepAlive) {
 }
 END_TEST
 
+START_TEST(Client_subscription_priority) {
+    UA_Client *client = UA_Client_new();
+    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+    UA_StatusCode retval = UA_Client_connect(client, "opc.tcp://localhost:4840");
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+
+    // prio = 0
+    UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+    request.requestedMaxKeepAliveCount = 1;
+    UA_CreateSubscriptionResponse response =
+        UA_Client_Subscriptions_create(client, request, NULL, NULL, NULL);
+    ck_assert_uint_eq(response.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
+    UA_UInt32 subId1 = response.subscriptionId;
+
+    // prio = 255 (highest)
+    request.priority = 255;
+    response = UA_Client_Subscriptions_create(client, request, NULL, NULL, NULL);
+    ck_assert_uint_eq(response.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
+    UA_UInt32 subId2 = response.subscriptionId;
+
+    // prio = 0
+    request.priority = 0;
+    response = UA_Client_Subscriptions_create(client, request, NULL, NULL, NULL);
+    ck_assert_uint_eq(response.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
+    UA_UInt32 subId3 = response.subscriptionId;
+
+    /* manually control the server thread */
+    running = false;
+    THREAD_JOIN(server_thread);
+
+    /* Ensure that the subscription is late */
+    UA_fakeSleep((UA_UInt32)(publishingInterval + 1));
+    UA_Server_run_iterate(server, true);
+
+    /* run the server in an independent thread again */
+    running = true;
+    THREAD_CREATE(server_thread, serverloop);
+
+    /* Manually send a publish request */
+    UA_PublishRequest pr;
+    UA_PublishRequest_init(&pr);
+    pr.subscriptionAcknowledgementsSize = 0;
+    UA_PublishResponse presponse;
+    UA_PublishResponse_init(&presponse);
+    __UA_Client_Service(client, &pr, &UA_TYPES[UA_TYPES_PUBLISHREQUEST],
+                        &presponse, &UA_TYPES[UA_TYPES_PUBLISHRESPONSE]);
+    ck_assert_uint_eq(presponse.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
+    ck_assert_uint_eq(presponse.notificationMessage.notificationDataSize, 0);
+    ck_assert_uint_eq(presponse.subscriptionId, subId2); /* the highest prio */
+    UA_PublishResponse_clear(&presponse);
+    UA_PublishRequest_clear(&pr);
+
+    retval = UA_Client_Subscriptions_deleteSingle(client, subId1);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+    retval = UA_Client_Subscriptions_deleteSingle(client, subId2);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+    retval = UA_Client_Subscriptions_deleteSingle(client, subId3);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+
+    UA_Client_disconnect(client);
+    UA_Client_delete(client);
+}
+END_TEST
+
 START_TEST(Client_subscription_connectionClose) {
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
@@ -909,6 +974,69 @@ START_TEST(Client_subscription_statusChange) {
     ck_assert_uint_eq(statusChange, 1234);
 
     UA_Server_run_shutdown(server);
+    UA_Client_disconnect(client);
+    UA_Client_delete(client);
+}
+END_TEST
+
+/* Write to the variable that is being monitored at a high rate */
+START_TEST(Client_subscription_writeBurst) {
+    /* add a variable node to the address space */
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
+    UA_Int32 myInteger = 42;
+    UA_Variant_setScalar(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
+    attr.description = UA_LOCALIZEDTEXT("en-US","the answer");
+    attr.displayName = UA_LOCALIZEDTEXT("en-US","the answer");
+    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
+    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
+    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+    UA_StatusCode retval = UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
+                                                     parentReferenceNodeId, myIntegerName,
+                                                     UA_NODEID_NULL, attr, NULL, NULL);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+
+    UA_Client *client = UA_Client_new();
+    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+
+    retval = UA_Client_connect(client, "opc.tcp://localhost:4840");
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+
+    UA_Client_recv = client->connection.recv;
+    client->connection.recv = UA_Client_recvTesting;
+
+    UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+    UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client, request,
+                                                                            NULL, NULL, NULL);
+    ck_assert_uint_eq(response.responseHeader.serviceResult, UA_STATUSCODE_GOOD);
+
+    /* monitor the server state */
+    UA_MonitoredItemCreateRequest monRequest =
+        UA_MonitoredItemCreateRequest_default(myIntegerNodeId);
+
+    UA_MonitoredItemCreateResult monResponse =
+        UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
+                                                  UA_TIMESTAMPSTORETURN_BOTH,
+                                                  monRequest, NULL, dataChangeHandler, NULL);
+    ck_assert_uint_eq(monResponse.statusCode, UA_STATUSCODE_GOOD);
+
+    UA_fakeSleep((UA_UInt32)publishingInterval + 1);
+
+    retval = UA_Client_run_iterate(client, 1);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+
+    UA_DateTime origTime = UA_DateTime_nowMonotonic();
+    do {
+        myInteger++;
+        retval = UA_Client_writeValueAttribute_async(client, myIntegerNodeId, &attr.value, NULL, NULL, NULL);
+        ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+        UA_Client_run_iterate(client, 1);
+        UA_comboSleep(2);
+    } while(UA_DateTime_nowMonotonic() - origTime < 1 * UA_DATETIME_SEC);
+
+    printf("done\n");
+
     UA_Client_disconnect(client);
     UA_Client_delete(client);
 }
@@ -1436,10 +1564,12 @@ static Suite* testSuite_Client(void) {
     tcase_add_test(tc_client, Client_subscription_modifyMonitoredItem);
     tcase_add_test(tc_client, Client_subscription_createDataChanges_async);
     tcase_add_test(tc_client, Client_subscription_keepAlive);
+    tcase_add_test(tc_client, Client_subscription_priority);
     tcase_add_test(tc_client, Client_subscription_without_notification);
     tcase_add_test(tc_client, Client_subscription_async_sub);
     tcase_add_test(tc_client, Client_subscription_reconnect);
     tcase_add_test(tc_client, Client_subscription_transfer);
+    tcase_add_test(tc_client, Client_subscription_writeBurst);
     suite_add_tcase(s,tc_client);
 
 #ifdef UA_ENABLE_METHODCALLS
