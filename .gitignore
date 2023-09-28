@@ -17,6 +17,7 @@
 *.gcno
 *.gcda
 *.swp
+*.d
 .dirstamp
 /bin
 m4
@@ -68,10 +69,10 @@ doc_src/
 /exampleClient
 /exampleClient_legacy
 /src_generated/
+/build*
 **/build
 **/build_*
 /cmake-build*
-/tools/certs/certs/*
 Pipfile
 Pipfile.lock
 .vscode
@@ -83,6 +84,7 @@ debian/*
 .cache/
 # project local vim settings
 .vim/
+
 # IDE specific settings
 .idea/
 *.iml
@@ -97,3 +99,11 @@ nbbuild/
 dist/
 nbdist/
 .nb-gradle/
+
+Debug
+Release
+tags
+
+/bindings/lua/certs/*
+/bindings/lua/ldoc/*
+/tools/certs/*

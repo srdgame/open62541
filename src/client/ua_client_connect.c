@@ -938,6 +938,15 @@ responseActivateSession(UA_Client *client, void *userdata,
     extractEphemeralKeyFromAddHeader(client, &ar->responseHeader.additionalHeader);
 
     client->sessionState = UA_SESSIONSTATE_ACTIVATED;
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+	// DIRK: force the publish requests to be send
+	// if(client->currentlyOutStandingPublishRequests >= client->config.outStandingPublishRequests)
+	//	client->currentlyOutStandingPublishRequests--;
+
+	/*
+	client->currentlyOutStandingPublishRequests = 0;
+	*/
+#endif
     notifyClientState(client);
 
     /* Read the namespaces array if we don't already have it */

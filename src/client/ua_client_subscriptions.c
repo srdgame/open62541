@@ -1529,6 +1529,8 @@ __Client_Subscriptions_processPublishResponse(UA_Client *client, UA_PublishReque
          * numbers. (Probably some multi-threading synchronization issue.) */
         /* UA_Client_disconnect(client);
            return; */
+		// DIRK: comment my changes
+        // sub->sequenceNumber = msg->sequenceNumber;
     }
     /* According to f), a keep-alive message contains no notifications and has
      * the sequence number of the next NotificationMessage that is to be sent =>
@@ -1630,6 +1632,12 @@ __Client_Subscriptions_backgroundPublish(UA_Client *client) {
 
     if(client->sessionState != UA_SESSIONSTATE_ACTIVATED)
         return;
+
+	// DIRK: Fix start
+	//if(client->channel.state != UA_SECURECHANNELSTATE_OPEN) {
+    //    return;
+	//}
+	// DIRK: Fix end
 
     /* The session must have at least one subscription */
     if(!LIST_FIRST(&client->subscriptions))
