@@ -34,7 +34,7 @@ jobs:
           action: extension_opcua
           workdir: bindings/lua
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v7
         with:
           name: lua-opcua
           path: ${{ github.workspace }}/__output/**/*
